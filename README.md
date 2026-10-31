@@ -15,10 +15,20 @@ Project scaffolding follows the AI-native SDLC playbook
 | `evals/` | Real tasks used to check Claude's config still behaves, one JSON file each |
 | `docs/lessons.md` | Post-mortem lessons |
 | `.github/` | Code owners and PR template |
+| `frontend/` | Browser UI (Vite + React) |
+| `backend/` | API server and agents (FastAPI) |
+| `mcp_servers/` | One MCP server per data domain |
 
 ## Lifecycle
 Plan (`intent.md`) → Design (`spec.md`) → Build (`plan.md`, code on a branch) → Test → PR review → merge to `main`.
 Each stage ends with a commit, so git history is the audit trail.
+
+## Run it
+```bash
+make install
+export ANTHROPIC_API_KEY=...   # for chat
+make dev                       # UI at http://localhost:5173
+```
 
 ## Local setup
 After cloning, enable the repo's git hooks (blocks direct commits on `main`):

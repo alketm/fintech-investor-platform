@@ -4,10 +4,13 @@ Keep this file under a page. When Claude makes the same mistake twice, the corre
 Changes to this file are reviewed like code.
 
 ## Commands
-Tech stack not chosen yet. When it is, list each command with an example of healthy output:
-- `make build` — TODO
-- `make test` — TODO (must exit non-zero on failure)
-- `make lint` — TODO
+Python 3.12 via uv, Node via npm; both live in `~/.local/bin` (the Makefile adds it to PATH).
+- `make install` — `uv sync --all-packages` + `npm install`
+- `make dev` — backend on :8000 and UI on :5173. Needs `ANTHROPIC_API_KEY` for chat.
+- `make test` — pytest then vitest. Healthy: `19 passed` and `Tests  4 passed`. Exits non-zero on failure.
+- `make lint` — ruff check, ruff format --check, oxlint, `tsc -b`. Healthy: `All checks passed!`, no tsc output.
+- `make build` — frontend bundle. Healthy: `✓ built in …`
+- Health check with backend running: `curl localhost:8000/api/health` lists six MCP servers and their tools.
 
 ## Workflow
 Every feature moves through `intent/<feature>/`:
@@ -30,7 +33,17 @@ If a test fails, fix the code, not the test. Never skip or delete a failing test
   must follow the compliance rules in the relevant `spec.md`; flag it in review if unsure.
 
 ## Architecture
-TODO once the stack exists — one line per top-level directory.
+- `frontend/` — Vite + React + TS. Views: `src/views/` (Portfolio, Analysis, Strategy); chat in `src/components/ChatPanel.tsx`.
+- `backend/` — FastAPI (`alko_backend.main`). Starts every MCP server over stdio at startup (`mcp_pool.py`).
+  Agents in `agents.py`: `advisor` only delegates (`ask_<agent>` tools); each focused agent only sees its own
+  MCP server's tools. Holdings seed: `backend/data/portfolios.json`.
+- `mcp_servers/<name>/` — one uv package per data domain; tools in `server.py`, pure math in `analytics.py`.
+  Market data only comes from here (yfinance), never directly from the backend.
+- Adding an MCP server: new package, add to `MCP_SERVERS` in `backend/src/alko_backend/config.py` and to
+  `backend/pyproject.toml`, then give a focused agent its name in `servers`.
 
 ## Things Claude gets wrong
-(Add entries as they come up.)
+- `mcp` is 2.x: the server class is `MCPServer` from `mcp.server.mcpserver` (not FastMCP); types are snake_case
+  (`input_schema`, `structured_content`).
+- Claude model is `claude-opus-5-5`: thinking can't be disabled and forced `tool_choice` is rejected; tune `effort`.
+- yfinance `Ticker.news` is often empty; the news server falls back to `yf.Search`.

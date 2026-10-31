@@ -1,0 +1,28 @@
+{
+  "portfolios": [
+    {
+      "id": "brokerage",
+      "name": "Brokerage",
+      "account_type": "taxable",
+      "holdings": [
+        {"symbol": "AAPL", "type": "stock", "shares": 50, "cost_basis": 150.00},
+        {"symbol": "MSFT", "type": "stock", "shares": 30, "cost_basis": 280.00},
+        {"symbol": "NVDA", "type": "stock", "shares": 40, "cost_basis": 45.00},
+        {"symbol": "VTI", "type": "etf", "shares": 100, "cost_basis": 200.00},
+        {"symbol": "QQQ", "type": "etf", "shares": 25, "cost_basis": 350.00}
+      ]
+    },
+    {
+      "id": "ira",
+      "name": "IRA",
+      "account_type": "traditional_ira",
+      "holdings": [
+        {"symbol": "VOO", "type": "etf", "shares": 60, "cost_basis": 380.00},
+        {"symbol": "SCHD", "type": "etf", "shares": 450, "cost_basis": 24.00},
+        {"symbol": "BND", "type": "etf", "shares": 200, "cost_basis": 73.00},
+        {"symbol": "VXUS", "type": "etf", "shares": 120, "cost_basis": 55.00},
+        {"symbol": "JNJ", "type": "stock", "shares": 40, "cost_basis": 155.00}
+      ]
+    }
+  ]
+}
