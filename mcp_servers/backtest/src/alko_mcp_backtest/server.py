@@ -2,6 +2,7 @@
 
 import yfinance as yf
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from alko_mcp_backtest.analytics import buy_and_hold_stats
 
@@ -14,12 +15,12 @@ def backtest_buy_and_hold(symbol: str, start: str, end: str, initial_capital: fl
     daily closes. Returns total return, CAGR, annualized volatility, max drawdown and final value."""
     history = yf.Ticker(symbol.upper()).history(start=start, end=end, auto_adjust=True)
     if history.empty:
-        raise ValueError(f"No price history for {symbol!r} between {start} and {end}")
-    return {
-        "symbol": symbol.upper(),
-        "strategy": "buy_and_hold",
-        **buy_and_hold_stats(history["Close"], initial_capital),
-    }
+        raise ToolError(f"No price history for {symbol!r} between {start} and {end}")
+    try:
+        stats = buy_and_hold_stats(history["Close"], initial_capital)
+    except ValueError as e:  # expected data problems: report the reason to the caller
+        raise ToolError(str(e)) from e
+    return {"symbol": symbol.upper(), "strategy": "buy_and_hold", **stats}
 
 
 def main() -> None:

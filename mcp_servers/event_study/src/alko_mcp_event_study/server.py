@@ -5,6 +5,7 @@ from datetime import timedelta
 import pandas as pd
 import yfinance as yf
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from alko_mcp_event_study.analytics import market_model_event_study
 
@@ -24,7 +25,12 @@ def run_event_study(symbol: str, event_date: str, benchmark: str = "SPY", window
         s: yf.Ticker(s).history(start=start, end=end, auto_adjust=True)["Close"].tz_localize(None)
         for s in (symbol.upper(), benchmark.upper())
     }
-    result = market_model_event_study(closes[symbol.upper()], closes[benchmark.upper()], day, window=window)
+    try:
+        result = market_model_event_study(
+            closes[symbol.upper()], closes[benchmark.upper()], day, window=window
+        )
+    except ValueError as e:  # expected data problems: report the reason to the caller
+        raise ToolError(str(e)) from e
     return {"symbol": symbol.upper(), "benchmark": benchmark.upper(), "event_date": event_date, **result}
 
 

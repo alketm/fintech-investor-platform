@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import pandas as pd
 import yfinance as yf
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from alko_mcp_etf import analytics
 from alko_mcp_etf.analytics import Window
@@ -47,9 +48,9 @@ def _today() -> pd.Timestamp:
 def _symbols(symbol_list: list[str]) -> list[str]:
     symbols = list(dict.fromkeys(s.strip().upper() for s in symbol_list if s and s.strip()))
     if not symbols:
-        raise ValueError("symbol_list is empty")
+        raise ToolError("symbol_list is empty")
     if len(symbols) > MAX_SYMBOLS:
-        raise ValueError(f"At most {MAX_SYMBOLS} symbols per call")
+        raise ToolError(f"At most {MAX_SYMBOLS} symbols per call")
     return symbols
 
 
@@ -77,9 +78,9 @@ def _etf_ticker(symbol: str) -> yf.Ticker:
     ticker = _ticker(symbol)
     quote_type = (ticker.info or {}).get("quoteType")
     if quote_type is None:
-        raise ValueError("Unknown symbol")
+        raise ToolError("Unknown symbol")
     if quote_type != "ETF":
-        raise ValueError(f"Not an ETF (quote type {quote_type})")
+        raise ToolError(f"Not an ETF (quote type {quote_type})")
     return ticker
 
 
@@ -90,7 +91,7 @@ def _prices(symbols: list[str], window: Window, extra: tuple[str, ...] = ()):
 
 def _column(frame: pd.DataFrame, symbol: str) -> pd.Series:
     if symbol not in frame.columns or frame[symbol].dropna().empty:
-        raise ValueError("No price history for this window")
+        raise ToolError("No price history for this window")
     return frame[symbol]
 
 

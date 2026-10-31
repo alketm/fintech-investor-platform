@@ -54,8 +54,9 @@ FOCUSED_AGENTS = [
     AgentSpec(
         "news",
         "News analyst",
-        "Recent headlines.",
-        "Summarize recent news for tickers and flag what may matter for a holder.",
+        "Recent headlines and analyst ratings.",
+        "Summarize recent news and sell-side analyst views (consensus, price targets, upgrades and downgrades) "
+        "for tickers, and flag what may matter for a holder. Treat analyst targets as opinions, not forecasts.",
         servers=("news",),
     ),
     AgentSpec(

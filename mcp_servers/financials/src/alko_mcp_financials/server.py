@@ -5,6 +5,7 @@ from typing import Literal
 
 import yfinance as yf
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 mcp = MCPServer("alko-financials", instructions="Company financial statements.")
 
@@ -25,7 +26,7 @@ def get_income_statement(symbol: str, period: Literal["annual", "quarterly"] = "
     ticker = yf.Ticker(symbol.upper())
     df = ticker.quarterly_income_stmt if period == "quarterly" else ticker.income_stmt
     if df is None or df.empty:
-        raise ValueError(f"No income statement for {symbol!r}")
+        raise ToolError(f"No income statement for {symbol!r}")
 
     periods = []
     for col in df.columns:

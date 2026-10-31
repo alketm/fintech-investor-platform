@@ -7,7 +7,7 @@ Changes to this file are reviewed like code.
 Python 3.12 via uv, Node via npm; both live in `~/.local/bin` (the Makefile adds it to PATH).
 - `make install` — `uv sync --all-packages` + `npm install`
 - `make dev` — backend on :8000 and UI on :5173. Needs `ANTHROPIC_API_KEY` for chat.
-- `make test` — pytest then vitest. Healthy: `34 passed` and `Tests  4 passed`. Exits non-zero on failure.
+- `make test` — pytest then vitest. Healthy: `38 passed` and `Tests  4 passed`. Exits non-zero on failure.
 - `make lint` — ruff check, ruff format --check, oxlint, `tsc -b`. Healthy: `All checks passed!`, no tsc output.
 - `make build` — frontend bundle. Healthy: `✓ built in …`
 - Health check with backend running: `curl localhost:8000/api/health` lists six MCP servers and their tools.
@@ -44,6 +44,7 @@ If a test fails, fix the code, not the test. Never skip or delete a failing test
 
 ## Things Claude gets wrong
 - `mcp` is 2.x: the server class is `MCPServer` from `mcp.server.mcpserver` (not FastMCP); types are snake_case
-  (`input_schema`, `structured_content`).
+  (`input_schema`, `structured_content`). Raise `ToolError` (`mcp.server.mcpserver.exceptions`) for expected
+  tool failures: any other exception reaches the caller only as "Error executing tool <name>".
 - Claude model is `claude-opus-5-5`: thinking can't be disabled and forced `tool_choice` is rejected; tune `effort`.
 - yfinance `Ticker.news` is often empty; the news server falls back to `yf.Search`.

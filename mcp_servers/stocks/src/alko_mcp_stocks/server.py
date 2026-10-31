@@ -4,6 +4,7 @@ import math
 
 import yfinance as yf
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 mcp = MCPServer("alko-stocks", instructions="Stock and ETF price quotes.")
 
@@ -25,7 +26,7 @@ def get_quote(symbol: str) -> dict:
     price = _num(fast.get("lastPrice"))
     prev = _num(fast.get("previousClose"))
     if price is None:
-        raise ValueError(f"No price data for {symbol!r}")
+        raise ToolError(f"No price data for {symbol!r}")
     change_pct = (price / prev - 1) * 100 if prev else None
     return {
         "symbol": symbol.upper(),

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 import pytest
+from mcp.server.mcpserver.exceptions import ToolError
 
 from alko_mcp_etf import server
 
@@ -58,9 +59,9 @@ def fake_yfinance(monkeypatch):
 
 def test_symbols_are_normalized_and_validated():
     assert server._symbols([" vti", "VTI", "bnd", ""]) == ["VTI", "BND"]
-    with pytest.raises(ValueError):
+    with pytest.raises(ToolError):
         server._symbols([])
-    with pytest.raises(ValueError):
+    with pytest.raises(ToolError):
         server._symbols([f"S{i}" for i in range(21)])
 
 
