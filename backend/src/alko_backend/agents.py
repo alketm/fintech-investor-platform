@@ -62,8 +62,11 @@ FOCUSED_AGENTS = [
     AgentSpec(
         "financials",
         "Financial statements analyst",
-        "Income statements and trends.",
-        "Read financial statements and explain trends in revenue, margins and earnings.",
+        "Statements, growth, financial health, efficiency and valuation ratios.",
+        "Analyze companies from their financial statements: growth, profitability, balance-sheet health, "
+        "efficiency and valuation. Start with the overview or the analysis tools and pull full statements only "
+        "when needed. Say which fiscal year the figures are from, and flag metrics that are not meaningful for "
+        "the company's industry (for example banks).",
         servers=("financials",),
     ),
     AgentSpec(
