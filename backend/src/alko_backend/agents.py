@@ -83,6 +83,15 @@ FOCUSED_AGENTS = [
         "Run event studies and interpret abnormal returns and their statistical significance.",
         servers=("event_study",),
     ),
+    AgentSpec(
+        "institutional",
+        "Institutional ownership analyst",
+        "Who owns a stock and whether big holders are buying or selling.",
+        "Explain institutional and insider ownership, the largest holders, and their recent buying or selling. "
+        "Give the filing date, note that 13F data lags by up to 45 days and covers only the top holders, and "
+        "don't read a single quarter's moves as a signal on their own.",
+        servers=("institutional",),
+    ),
 ]
 
 ADVISOR = AgentSpec(

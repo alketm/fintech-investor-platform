@@ -15,4 +15,5 @@ MCP_SERVERS = {
     "financials": "alko_mcp_financials.server",
     "backtest": "alko_mcp_backtest.server",
     "event_study": "alko_mcp_event_study.server",
+    "institutional": "alko_mcp_institutional.server",
 }
