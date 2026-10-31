@@ -7,7 +7,7 @@ Changes to this file are reviewed like code.
 Python 3.12 via uv, Node via npm; both live in `~/.local/bin` (the Makefile adds it to PATH).
 - `make install` — `uv sync --all-packages` + `npm install`
 - `make dev` — backend on :8000 and UI on :5173. Needs `ANTHROPIC_API_KEY` for chat.
-- `make test` — pytest then vitest. Healthy: `19 passed` and `Tests  4 passed`. Exits non-zero on failure.
+- `make test` — pytest then vitest. Healthy: `34 passed` and `Tests  4 passed`. Exits non-zero on failure.
 - `make lint` — ruff check, ruff format --check, oxlint, `tsc -b`. Healthy: `All checks passed!`, no tsc output.
 - `make build` — frontend bundle. Healthy: `✓ built in …`
 - Health check with backend running: `curl localhost:8000/api/health` lists six MCP servers and their tools.

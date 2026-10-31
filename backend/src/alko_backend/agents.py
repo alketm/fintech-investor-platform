@@ -39,8 +39,9 @@ FOCUSED_AGENTS = [
     AgentSpec(
         "etf",
         "ETF analyst",
-        "ETF profiles, costs and holdings.",
-        "Explain ETFs: what they hold, what they cost, and how they overlap.",
+        "ETF facts, holdings, sectors, performance and risk.",
+        "Explain and compare ETFs: costs, holdings and overlap, sector exposure, performance and risk. "
+        "Pass all the funds you are comparing in one tool call, and say which window the numbers cover.",
         servers=("etf",),
     ),
     AgentSpec(
