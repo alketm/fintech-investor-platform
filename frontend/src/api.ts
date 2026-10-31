@@ -69,6 +69,103 @@ export interface EventStudyResult {
   car_t_stat: number | null
 }
 
+export type LongShortStrategy = 'moving_average' | 'time_series_momentum' | 'rsi_mean_reversion'
+
+export interface StrategyStats {
+  total_return_pct: number
+  cagr_pct: number | null
+  annualized_volatility_pct: number
+  sharpe_ratio: number | null
+  max_drawdown_pct: number
+  final_value: number
+}
+
+export interface LongShortResult {
+  symbol: string
+  rule: string
+  parameters: Record<string, number | string>
+  start: string
+  end: string
+  trading_days: number
+  strategy: StrategyStats
+  buy_and_hold: StrategyStats
+  activity: {
+    position_changes: number
+    pct_days_long: number
+    pct_days_short: number
+    pct_days_flat: number
+    closed_trades: number
+    win_rate_pct: number | null
+    total_costs: number
+    current_position: 'long' | 'short' | 'flat'
+  }
+  equity_curve: { date: string; strategy: number; buy_and_hold: number }[]
+  assumptions: string
+}
+
+export interface PathPoint {
+  day: number
+  abnormal_return_pct: number
+  car_pct: number
+}
+
+export interface EventAggregate {
+  events: number
+  average_car_pct: number
+  median_car_pct: number
+  pct_positive: number
+  t_stat: number | null
+  car_days: string
+  average_path: PathPoint[]
+}
+
+export interface EarningsStudyResult {
+  symbol: string
+  benchmark: string
+  window: number
+  aggregate: EventAggregate
+  beats: EventAggregate | null
+  misses: EventAggregate | null
+  events: {
+    announced: string
+    timing: string
+    day0: string
+    eps_estimate: number | null
+    eps_actual: number | null
+    surprise_pct: number | null
+    day0_abnormal_pct: number
+    car_m1_p1_pct: number
+    car_window_pct: number
+  }[]
+  skipped: { date: string; reason: string }[]
+  note: string
+}
+
+export interface MoveGroup extends EventAggregate {
+  average_move_pct: number
+  pct_continuing: number
+  read: string | null
+}
+
+export interface LargeMoveStudyResult {
+  symbol: string
+  benchmark: string
+  threshold_sigma: number
+  window: number
+  since: string
+  up_moves: MoveGroup | null
+  down_moves: MoveGroup | null
+  events: {
+    date: string
+    return_pct: number
+    sigma_multiple: number
+    direction: 'up' | 'down'
+    day0_abnormal_pct: number
+    post_car_pct: number
+  }[]
+  note: string
+}
+
 export interface AgentInfo {
   id: string
   name: string
@@ -109,6 +206,24 @@ export const api = {
     post<BacktestResult>('/api/strategy/backtest', body),
   eventStudy: (body: { symbol: string; event_date: string; benchmark: string; window: number }) =>
     post<EventStudyResult>('/api/strategy/event-study', body),
+  longShort: (body: {
+    strategy: LongShortStrategy
+    symbol: string
+    start: string
+    end: string
+    initial_capital: number
+    cost_bps: number
+    params: Record<string, number>
+  }) => post<LongShortResult>('/api/strategy/long-short', body),
+  earningsStudy: (body: { symbol: string; benchmark: string; window: number; max_events: number }) =>
+    post<EarningsStudyResult>('/api/strategy/event-study/earnings', body),
+  largeMoveStudy: (body: {
+    symbol: string
+    threshold_sigma: number
+    benchmark: string
+    window: number
+    lookback_years: number
+  }) => post<LargeMoveStudyResult>('/api/strategy/event-study/large-moves', body),
   chat: (body: {
     agent: string
     messages: ChatMessage[]

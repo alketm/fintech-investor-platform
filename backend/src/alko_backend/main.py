@@ -89,6 +89,39 @@ class EventStudyRequest(BaseModel):
     window: int = Field(5, ge=1, le=30)
 
 
+class LongShortRequest(BaseModel):
+    strategy: Literal["moving_average", "time_series_momentum", "rsi_mean_reversion"]
+    symbol: str
+    start: str
+    end: str
+    initial_capital: float = Field(10_000.0, gt=0)
+    cost_bps: float = Field(5.0, ge=0)
+    params: dict[str, float] = {}
+
+
+LONG_SHORT_TOOLS = {
+    "moving_average": ("backtest_moving_average", {"fast", "slow"}),
+    "time_series_momentum": ("backtest_time_series_momentum", {"lookback_days", "skip_days"}),
+    "rsi_mean_reversion": ("backtest_rsi_mean_reversion", {"period", "lower", "upper", "exit_level"}),
+}
+INTEGER_PARAMS = {"fast", "slow", "lookback_days", "skip_days", "period"}
+
+
+class EarningsStudyRequest(BaseModel):
+    symbol: str
+    benchmark: str = "SPY"
+    window: int = Field(5, ge=1, le=20)
+    max_events: int = Field(12, ge=1, le=40)
+
+
+class LargeMoveStudyRequest(BaseModel):
+    symbol: str
+    threshold_sigma: float = Field(2.5, gt=0)
+    benchmark: str = "SPY"
+    window: int = Field(10, ge=1, le=30)
+    lookback_years: int = Field(5, ge=1, le=20)
+
+
 async def _tool(request: Request, server: str, tool: str, args: dict) -> dict:
     try:
         return await request.app.state.pool.call_json(server, tool, args)
@@ -104,6 +137,27 @@ async def backtest(body: BacktestRequest, request: Request):
 @app.post("/api/strategy/event-study")
 async def event_study(body: EventStudyRequest, request: Request):
     return await _tool(request, "event_study", "run_event_study", body.model_dump())
+
+
+@app.post("/api/strategy/long-short")
+async def long_short(body: LongShortRequest, request: Request):
+    tool, allowed = LONG_SHORT_TOOLS[body.strategy]
+    unknown = set(body.params) - allowed
+    if unknown:
+        raise HTTPException(422, f"Unknown parameters for {body.strategy}: {', '.join(sorted(unknown))}")
+    params = {k: int(v) if k in INTEGER_PARAMS else v for k, v in body.params.items()}
+    args = body.model_dump(exclude={"strategy", "params"}) | params
+    return await _tool(request, "backtest", tool, args)
+
+
+@app.post("/api/strategy/event-study/earnings")
+async def earnings_study(body: EarningsStudyRequest, request: Request):
+    return await _tool(request, "event_study", "run_earnings_event_study", body.model_dump())
+
+
+@app.post("/api/strategy/event-study/large-moves")
+async def large_move_study(body: LargeMoveStudyRequest, request: Request):
+    return await _tool(request, "event_study", "run_large_move_event_study", body.model_dump())
 
 
 @app.get("/api/agents")

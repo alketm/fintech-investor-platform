@@ -357,6 +357,106 @@ tr.highlight td {
   transform: translateX(-100%);
 }
 
+.form .span-all {
+  grid-column: 1 / -1;
+}
+
+.form select {
+  width: 100%;
+  color: var(--text);
+}
+
+.grid-2 > * {
+  min-width: 0; /* let wide tables scroll inside their card instead of widening the page */
+}
+
+.result {
+  overflow-x: auto;
+}
+
+.result th,
+.result td {
+  padding: 6px 8px;
+}
+
+.result h4 {
+  margin: 18px 0 6px;
+  font-size: 0.9rem;
+}
+
+.result .rule {
+  margin: 14px 0 8px;
+  font-size: 0.85rem;
+}
+
+.small {
+  font-size: 0.78rem;
+}
+
+.table-scroll {
+  max-height: 280px;
+  overflow: auto;
+}
+
+.chart {
+  margin: 14px 0 0;
+}
+
+.chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart-axis {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-line.series-a {
+  stroke: var(--accent);
+}
+
+.chart-line.series-b {
+  stroke: var(--muted);
+  stroke-dasharray: 4 3;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.swatch.series-a {
+  background: var(--accent);
+}
+
+.swatch.series-b {
+  background: var(--muted);
+}
+
 .chat {
   display: flex;
   flex-direction: column;

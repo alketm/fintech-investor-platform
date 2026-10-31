@@ -72,15 +72,19 @@ FOCUSED_AGENTS = [
     AgentSpec(
         "backtest",
         "Backtest analyst",
-        "Historical strategy backtests.",
-        "Run backtests and explain the results and their limits (look-ahead, survivorship, costs).",
+        "Buy-and-hold and long-short strategy backtests.",
+        "Run backtests (buy and hold; long-short moving-average, time-series momentum and RSI mean reversion) and "
+        "compare each strategy with buy and hold on return, risk and drawdown. Explain the limits: in-sample "
+        "parameters, costs, short-borrow costs ignored, one symbol, survivorship. Never present a backtest as a "
+        "forecast or a recommendation.",
         servers=("backtest",),
     ),
     AgentSpec(
         "event_study",
         "Event study analyst",
-        "Abnormal returns around events.",
-        "Run event studies and interpret abnormal returns and their statistical significance.",
+        "Abnormal returns around a date, earnings announcements and large moves.",
+        "Run event studies (a single date, past earnings announcements, or large daily moves) and interpret "
+        "abnormal returns, their statistical significance and the number of events behind them.",
         servers=("event_study",),
     ),
     AgentSpec(

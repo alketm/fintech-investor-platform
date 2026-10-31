@@ -91,3 +91,41 @@ def test_load_env_file_does_not_override(tmp_path, monkeypatch):
     assert os.environ["ALKO_TEST_A"] == "from file"
     assert os.environ["ALKO_TEST_B"] == "from shell"
     monkeypatch.delenv("ALKO_TEST_A")
+
+
+def test_long_short_endpoint_maps_strategy_and_params(client, pool):
+    r = client.post(
+        "/api/strategy/long-short",
+        json={
+            "strategy": "moving_average",
+            "symbol": "SPY",
+            "start": "2020-01-01",
+            "end": "2024-01-01",
+            "params": {"fast": 20.0, "slow": 100},
+        },
+    )
+    assert r.status_code == 200
+    server, tool, args = pool.calls[-1]
+    assert (server, tool) == ("backtest", "backtest_moving_average")
+    assert args["fast"] == 20 and isinstance(args["fast"], int) and args["cost_bps"] == 5.0
+    bad = client.post(
+        "/api/strategy/long-short",
+        json={
+            "strategy": "rsi_mean_reversion",
+            "symbol": "SPY",
+            "start": "2020-01-01",
+            "end": "2024-01-01",
+            "params": {"fast": 5},
+        },
+    )
+    assert bad.status_code == 422 and "fast" in bad.json()["detail"]
+
+
+def test_event_study_endpoints(client, pool):
+    assert client.post("/api/strategy/event-study/earnings", json={"symbol": "AAPL"}).status_code == 200
+    assert pool.calls[-1][:2] == ("event_study", "run_earnings_event_study")
+    assert (
+        client.post("/api/strategy/event-study/large-moves", json={"symbol": "AAPL", "window": 5}).status_code
+        == 200
+    )
+    assert pool.calls[-1][1] == "run_large_move_event_study" and pool.calls[-1][2]["threshold_sigma"] == 2.5
