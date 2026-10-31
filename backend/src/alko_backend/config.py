@@ -12,19 +12,19 @@ PORTFOLIOS_FILE = DATA_DIR / "portfolios.json"
 
 # MCP server name -> Python module run over stdio.
 MCP_SERVERS = {
-    "etf": "alko_mcp_etf.server",
-    "stocks": "alko_mcp_stocks.server",
-    "news": "alko_mcp_news.server",
-    "financials": "alko_mcp_financials.server",
-    "backtest": "alko_mcp_backtest.server",
-    "event_study": "alko_mcp_event_study.server",
-    "institutional": "alko_mcp_institutional.server",
-    "macro": "alko_mcp_macro.server",
-    "market": "alko_mcp_market.server",
+    "mcp_etf": "alko_mcp_etf.server",
+    "mcp_stocks": "alko_mcp_stocks.server",
+    "mcp_news": "alko_mcp_news.server",
+    "mcp_financials": "alko_mcp_financials.server",
+    "mcp_backtest": "alko_mcp_backtest.server",
+    "mcp_event_study": "alko_mcp_event_study.server",
+    "mcp_institutional": "alko_mcp_institutional.server",
+    "mcp_macro": "alko_mcp_macro.server",
+    "mcp_market": "alko_mcp_market.server",
 }
 
 # MCP servers start with a minimal environment; these variables are passed through to the named server only.
-MCP_SERVER_ENV = {"macro": ("FRED_API_KEY",), "backtest": ("FRED_API_KEY",)}
+MCP_SERVER_ENV = {"mcp_macro": ("FRED_API_KEY",), "mcp_backtest": ("FRED_API_KEY",)}
 
 
 def load_env_file(path: Path = ENV_FILE) -> None:

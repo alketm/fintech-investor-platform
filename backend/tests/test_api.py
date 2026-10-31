@@ -30,7 +30,7 @@ def client(pool):
 
 
 def test_health_lists_servers(client):
-    assert client.get("/api/health").json()["mcp_servers"]["stocks"] == ["get_quote"]
+    assert client.get("/api/health").json()["mcp_servers"]["mcp_stocks"] == ["get_quote"]
 
 
 def test_portfolios(client):
@@ -106,7 +106,7 @@ def test_long_short_endpoint_maps_strategy_and_params(client, pool):
     )
     assert r.status_code == 200
     server, tool, args = pool.calls[-1]
-    assert (server, tool) == ("backtest", "backtest_moving_average")
+    assert (server, tool) == ("mcp_backtest", "backtest_moving_average")
     assert args["fast"] == 20 and isinstance(args["fast"], int) and args["cost_bps"] == 5.0
     bad = client.post(
         "/api/strategy/long-short",
@@ -123,7 +123,7 @@ def test_long_short_endpoint_maps_strategy_and_params(client, pool):
 
 def test_event_study_endpoints(client, pool):
     assert client.post("/api/strategy/event-study/earnings", json={"symbol": "AAPL"}).status_code == 200
-    assert pool.calls[-1][:2] == ("event_study", "run_earnings_event_study")
+    assert pool.calls[-1][:2] == ("mcp_event_study", "run_earnings_event_study")
     assert (
         client.post("/api/strategy/event-study/large-moves", json={"symbol": "AAPL", "window": 5}).status_code
         == 200

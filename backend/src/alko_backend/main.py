@@ -39,7 +39,7 @@ async def _valued(request: Request, portfolio_id: str) -> dict:
     pool = request.app.state.pool
 
     async def quote(symbol: str) -> float:
-        return (await pool.call_json("stocks", "get_quote", {"symbol": symbol}))["price"]
+        return (await pool.call_json("mcp_stocks", "get_quote", {"symbol": symbol}))["price"]
 
     try:
         return await value_portfolio(_portfolio(request, portfolio_id), quote)
@@ -132,12 +132,12 @@ async def _tool(request: Request, server: str, tool: str, args: dict) -> dict:
 
 @app.post("/api/strategy/backtest")
 async def backtest(body: BacktestRequest, request: Request):
-    return await _tool(request, "backtest", "backtest_buy_and_hold", body.model_dump())
+    return await _tool(request, "mcp_backtest", "backtest_buy_and_hold", body.model_dump())
 
 
 @app.post("/api/strategy/event-study")
 async def event_study(body: EventStudyRequest, request: Request):
-    return await _tool(request, "event_study", "run_event_study", body.model_dump())
+    return await _tool(request, "mcp_event_study", "run_event_study", body.model_dump())
 
 
 @app.post("/api/strategy/long-short")
@@ -148,17 +148,17 @@ async def long_short(body: LongShortRequest, request: Request):
         raise HTTPException(422, f"Unknown parameters for {body.strategy}: {', '.join(sorted(unknown))}")
     params = {k: int(v) if k in INTEGER_PARAMS else v for k, v in body.params.items()}
     args = body.model_dump(exclude={"strategy", "params"}) | params
-    return await _tool(request, "backtest", tool, args)
+    return await _tool(request, "mcp_backtest", tool, args)
 
 
 @app.post("/api/strategy/event-study/earnings")
 async def earnings_study(body: EarningsStudyRequest, request: Request):
-    return await _tool(request, "event_study", "run_earnings_event_study", body.model_dump())
+    return await _tool(request, "mcp_event_study", "run_earnings_event_study", body.model_dump())
 
 
 @app.post("/api/strategy/event-study/large-moves")
 async def large_move_study(body: LargeMoveStudyRequest, request: Request):
-    return await _tool(request, "event_study", "run_large_move_event_study", body.model_dump())
+    return await _tool(request, "mcp_event_study", "run_large_move_event_study", body.model_dump())
 
 
 @app.get("/api/agents")

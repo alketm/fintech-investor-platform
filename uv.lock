@@ -47,15 +47,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "alko-mcp-backtest", editable = "mcp_servers/backtest" },
-    { name = "alko-mcp-etf", editable = "mcp_servers/etf" },
-    { name = "alko-mcp-event-study", editable = "mcp_servers/event_study" },
-    { name = "alko-mcp-financials", editable = "mcp_servers/financials" },
-    { name = "alko-mcp-institutional", editable = "mcp_servers/institutional" },
-    { name = "alko-mcp-macro", editable = "mcp_servers/macro" },
-    { name = "alko-mcp-market", editable = "mcp_servers/market" },
-    { name = "alko-mcp-news", editable = "mcp_servers/news" },
-    { name = "alko-mcp-stocks", editable = "mcp_servers/stocks" },
+    { name = "alko-mcp-backtest", editable = "mcp_servers/mcp_backtest" },
+    { name = "alko-mcp-etf", editable = "mcp_servers/mcp_etf" },
+    { name = "alko-mcp-event-study", editable = "mcp_servers/mcp_event_study" },
+    { name = "alko-mcp-financials", editable = "mcp_servers/mcp_financials" },
+    { name = "alko-mcp-institutional", editable = "mcp_servers/mcp_institutional" },
+    { name = "alko-mcp-macro", editable = "mcp_servers/mcp_macro" },
+    { name = "alko-mcp-market", editable = "mcp_servers/mcp_market" },
+    { name = "alko-mcp-news", editable = "mcp_servers/mcp_news" },
+    { name = "alko-mcp-stocks", editable = "mcp_servers/mcp_stocks" },
     { name = "anthropic", extras = ["mcp"], specifier = ">=1.0" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "mcp", specifier = ">=1.2" },
@@ -65,7 +65,7 @@ requires-dist = [
 [[package]]
 name = "alko-mcp-backtest"
 version = "0.1.0"
-source = { editable = "mcp_servers/backtest" }
+source = { editable = "mcp_servers/mcp_backtest" }
 dependencies = [
     { name = "alko-mcp-macro" },
     { name = "mcp" },
@@ -76,7 +76,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "alko-mcp-macro", editable = "mcp_servers/macro" },
+    { name = "alko-mcp-macro", editable = "mcp_servers/mcp_macro" },
     { name = "mcp", specifier = ">=1.2" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.2" },
@@ -86,7 +86,7 @@ requires-dist = [
 [[package]]
 name = "alko-mcp-etf"
 version = "0.1.0"
-source = { editable = "mcp_servers/etf" }
+source = { editable = "mcp_servers/mcp_etf" }
 dependencies = [
     { name = "mcp" },
     { name = "pandas" },
@@ -103,7 +103,7 @@ requires-dist = [
 [[package]]
 name = "alko-mcp-event-study"
 version = "0.1.0"
-source = { editable = "mcp_servers/event_study" }
+source = { editable = "mcp_servers/mcp_event_study" }
 dependencies = [
     { name = "mcp" },
     { name = "numpy" },
@@ -122,7 +122,7 @@ requires-dist = [
 [[package]]
 name = "alko-mcp-financials"
 version = "0.1.0"
-source = { editable = "mcp_servers/financials" }
+source = { editable = "mcp_servers/mcp_financials" }
 dependencies = [
     { name = "mcp" },
     { name = "pandas" },
@@ -139,7 +139,7 @@ requires-dist = [
 [[package]]
 name = "alko-mcp-institutional"
 version = "0.1.0"
-source = { editable = "mcp_servers/institutional" }
+source = { editable = "mcp_servers/mcp_institutional" }
 dependencies = [
     { name = "mcp" },
     { name = "pandas" },
@@ -156,7 +156,7 @@ requires-dist = [
 [[package]]
 name = "alko-mcp-macro"
 version = "0.1.0"
-source = { editable = "mcp_servers/macro" }
+source = { editable = "mcp_servers/mcp_macro" }
 dependencies = [
     { name = "mcp" },
     { name = "numpy" },
@@ -175,7 +175,7 @@ requires-dist = [
 [[package]]
 name = "alko-mcp-market"
 version = "0.1.0"
-source = { editable = "mcp_servers/market" }
+source = { editable = "mcp_servers/mcp_market" }
 dependencies = [
     { name = "mcp" },
     { name = "numpy" },
@@ -194,7 +194,7 @@ requires-dist = [
 [[package]]
 name = "alko-mcp-news"
 version = "0.1.0"
-source = { editable = "mcp_servers/news" }
+source = { editable = "mcp_servers/mcp_news" }
 dependencies = [
     { name = "mcp" },
     { name = "pandas" },
@@ -211,7 +211,7 @@ requires-dist = [
 [[package]]
 name = "alko-mcp-stocks"
 version = "0.1.0"
-source = { editable = "mcp_servers/stocks" }
+source = { editable = "mcp_servers/mcp_stocks" }
 dependencies = [
     { name = "mcp" },
     { name = "pandas" },

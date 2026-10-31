@@ -38,11 +38,12 @@ If a test fails, fix the code, not the test. Never skip or delete a failing test
 - `backend/` — FastAPI (`alko_backend.main`). Starts every MCP server over stdio at startup (`mcp_pool.py`).
   Agents in `agents.py`: `advisor` only delegates (`ask_<agent>` tools); each focused agent only sees its own
   MCP server's tools. Holdings seed: `backend/data/portfolios.json`.
-- `mcp_servers/<name>/` — one uv package per data domain; tools in `server.py`, pure math in `analytics.py`.
-  Market data only comes from here (yfinance; FRED for `macro`), never directly from the backend.
+- `mcp_servers/mcp_<name>/` — one uv package per data domain (Python package `alko_mcp_<name>`); tools in
+  `server.py`, pure math in `analytics.py`. Server names start with `mcp_` (folder, config key, MCPServer name).
+  Market data only comes from here (yfinance; FRED for `mcp_macro` and `mcp_backtest`), never directly from the backend.
   MCP servers start with a minimal environment: list any variable a server needs in `MCP_SERVER_ENV`.
 - Adding an MCP server: new package, add to `MCP_SERVERS` in `backend/src/alko_backend/config.py` and to
-  `backend/pyproject.toml`, then give a focused agent its name in `servers`.
+  `backend/pyproject.toml`, then give a focused agent its server name (`mcp_<name>`) in `servers`.
 
 ## Things Claude gets wrong
 - `mcp` is 2.x: the server class is `MCPServer` from `mcp.server.mcpserver` (not FastMCP); types are snake_case
@@ -51,4 +52,4 @@ If a test fails, fix the code, not the test. Never skip or delete a failing test
 - Claude model is `claude-opus-5-5`: thinking can't be disabled and forced `tool_choice` is rejected; tune `effort`.
 - MCP server test dirs have no `__init__.py`; give shared test helpers a unique module name
   (e.g. `financials_fixtures.py`) or pytest's `tests` packages collide.
-- yfinance `Ticker.news` is often empty; the news server falls back to `yf.Search`.
+- yfinance `Ticker.news` is often empty; `mcp_news` falls back to `yf.Search`.

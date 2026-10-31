@@ -31,7 +31,7 @@ async def test_focused_agent_calls_mcp_tool(pool):
     result = await AgentRunner(claude, pool).run("stocks", [{"role": "user", "content": "AAPL price?"}])
 
     assert result.text == "AAPL is $200."
-    assert pool.calls == [("stocks", "get_quote", {"symbol": "AAPL"})]
+    assert pool.calls == [("mcp_stocks", "get_quote", {"symbol": "AAPL"})]
     tool_result = claude.requests[1]["messages"][-1]["content"][0]
     assert tool_result["tool_use_id"] == "t1" and '"price": 200.0' in tool_result["content"]
     assert claude.requests[0]["fallbacks"] == "default"

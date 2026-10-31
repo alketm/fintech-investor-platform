@@ -22,8 +22,8 @@ class FakePool:
 
     def __init__(self):
         self.tools = {
-            "stocks": [SimpleNamespace(name="get_quote")],
-            "backtest": [SimpleNamespace(name="backtest_buy_and_hold")],
+            "mcp_stocks": [SimpleNamespace(name="get_quote")],
+            "mcp_backtest": [SimpleNamespace(name="backtest_buy_and_hold")],
         }
         self.calls = []
 

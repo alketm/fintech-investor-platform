@@ -42,14 +42,14 @@ FOCUSED_AGENTS = [
         "ETF facts, holdings, sectors, performance and risk.",
         "Explain and compare ETFs: costs, holdings and overlap, sector exposure, performance and risk. "
         "Pass all the funds you are comparing in one tool call, and say which window the numbers cover.",
-        servers=("etf",),
+        servers=("mcp_etf",),
     ),
     AgentSpec(
         "stocks",
         "Stock analyst",
         "Quotes and company basics.",
         "Report current prices and market data for stocks and ETFs.",
-        servers=("stocks",),
+        servers=("mcp_stocks",),
     ),
     AgentSpec(
         "news",
@@ -57,7 +57,7 @@ FOCUSED_AGENTS = [
         "Recent headlines and analyst ratings.",
         "Summarize recent news and sell-side analyst views (consensus, price targets, upgrades and downgrades) "
         "for tickers, and flag what may matter for a holder. Treat analyst targets as opinions, not forecasts.",
-        servers=("news",),
+        servers=("mcp_news",),
     ),
     AgentSpec(
         "financials",
@@ -67,7 +67,7 @@ FOCUSED_AGENTS = [
         "efficiency and valuation. Start with the overview or the analysis tools and pull full statements only "
         "when needed. Say which fiscal year the figures are from, and flag metrics that are not meaningful for "
         "the company's industry (for example banks).",
-        servers=("financials",),
+        servers=("mcp_financials",),
     ),
     AgentSpec(
         "backtest",
@@ -78,7 +78,7 @@ FOCUSED_AGENTS = [
         "compare each strategy with buy and hold on return, risk and drawdown. Explain the limits: in-sample "
         "parameters, costs, short-borrow costs ignored, one symbol, survivorship. Never present a backtest as a "
         "forecast or a recommendation.",
-        servers=("backtest",),
+        servers=("mcp_backtest",),
     ),
     AgentSpec(
         "event_study",
@@ -86,7 +86,7 @@ FOCUSED_AGENTS = [
         "Abnormal returns around a date, earnings announcements and large moves.",
         "Run event studies (a single date, past earnings announcements, or large daily moves) and interpret "
         "abnormal returns, their statistical significance and the number of events behind them.",
-        servers=("event_study",),
+        servers=("mcp_event_study",),
     ),
     AgentSpec(
         "institutional",
@@ -95,7 +95,7 @@ FOCUSED_AGENTS = [
         "Explain institutional and insider ownership, the largest holders, and their recent buying or selling. "
         "Give the filing date, note that 13F data lags by up to 45 days and covers only the top holders, and "
         "don't read a single quarter's moves as a signal on their own.",
-        servers=("institutional",),
+        servers=("mcp_institutional",),
     ),
     AgentSpec(
         "macro",
@@ -104,7 +104,7 @@ FOCUSED_AGENTS = [
         "Explain the US macro backdrop (growth, inflation, policy, market stress, recession signals, consumer "
         "health) and, when asked about a holding, how it relates to it. Cite the observation dates, treat regime "
         "labels as heuristics, and don't turn macro reads into market-timing calls.",
-        servers=("macro",),
+        servers=("mcp_macro",),
     ),
     AgentSpec(
         "market",
@@ -113,7 +113,7 @@ FOCUSED_AGENTS = [
         "Describe how the market and sectors are doing, what is moving today, and a stock's trend, momentum and "
         "relative strength. State the window and date. Technical indicators describe past prices; never present "
         "them as buy or sell signals.",
-        servers=("market",),
+        servers=("mcp_market",),
     ),
 ]
 

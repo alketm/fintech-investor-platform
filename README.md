@@ -17,7 +17,7 @@ Project scaffolding follows the AI-native SDLC playbook
 | `.github/` | Code owners and PR template |
 | `frontend/` | Browser UI (Vite + React) |
 | `backend/` | API server and agents (FastAPI) |
-| `mcp_servers/` | One MCP server per data domain |
+| `mcp_servers/` | One MCP server per data domain, each named `mcp_<domain>` |
 
 ## Lifecycle
 Plan (`intent.md`) → Design (`spec.md`) → Build (`plan.md`, code on a branch) → Test → PR review → merge to `main`.
@@ -27,7 +27,7 @@ Each stage ends with a commit, so git history is the audit trail.
 ```bash
 make install
 export ANTHROPIC_API_KEY=...   # for chat
-export FRED_API_KEY=...        # for the macro server (free: fred.stlouisfed.org/docs/api/api_key.html)
+export FRED_API_KEY=...        # for mcp_macro and mcp_backtest (free: fred.stlouisfed.org/docs/api/api_key.html)
 make dev                       # UI at http://localhost:5173
 ```
 
