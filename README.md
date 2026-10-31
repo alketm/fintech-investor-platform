@@ -19,3 +19,10 @@ Project scaffolding follows the AI-native SDLC playbook
 ## Lifecycle
 Plan (`intent.md`) → Design (`spec.md`) → Build (`plan.md`, code on a branch) → Test → PR review → merge to `main`.
 Each stage ends with a commit, so git history is the audit trail.
+
+## Local setup
+After cloning, enable the repo's git hooks (blocks direct commits on `main`):
+
+```bash
+git config core.hooksPath .githooks
+```
