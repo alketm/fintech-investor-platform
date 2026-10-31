@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { StrategyView } from './StrategyView'
 
@@ -45,7 +45,7 @@ describe('StrategyView', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<StrategyView />)
 
-    fireEvent.change(screen.getByLabelText('Strategy'), { target: { value: 'moving_average' } })
+    fireEvent.click(screen.getByRole('radio', { name: /Moving-average crossover/ }))
     fireEvent.change(screen.getByLabelText('Fast average (days)'), { target: { value: '20' } })
     fireEvent.change(screen.getByLabelText('Slow average (days)'), { target: { value: '100' } })
     fireEvent.click(screen.getByRole('button', { name: 'Run backtest' }))
@@ -63,10 +63,19 @@ describe('StrategyView', () => {
     })
   })
 
+  it('shows strategies and event types as tiles with one selected', () => {
+    render(<StrategyView />)
+    const strategy = screen.getByRole('group', { name: 'Strategy' })
+    expect(within(strategy).getAllByRole('radio')).toHaveLength(4)
+    expect(within(strategy).getByRole('radio', { name: /Buy and hold/ })).toBeChecked()
+    expect(within(screen.getByRole('group', { name: 'Event type' })).getAllByRole('radio')).toHaveLength(3)
+  })
+
   it('shows inputs that match the chosen event study', () => {
     render(<StrategyView />)
     expect(screen.getByLabelText('Event date')).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Event type'), { target: { value: 'large_moves' } })
+    fireEvent.click(screen.getByRole('radio', { name: /Large daily moves/ }))
+    expect(screen.getByRole('radio', { name: /Large daily moves/ })).toBeChecked()
     expect(screen.queryByLabelText('Event date')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Threshold (× volatility)')).toBeInTheDocument()
     expect(screen.getByLabelText('Days after (window)')).toHaveValue(10)

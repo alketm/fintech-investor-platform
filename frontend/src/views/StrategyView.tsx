@@ -67,15 +67,65 @@ function NumberInput({ value, onChange, min, max, step }: {
   return <input type="number" value={value} min={min} max={max} step={step} onChange={(e) => onChange(Number(e.target.value))} />
 }
 
+interface TileOption<T extends string> {
+  id: T
+  tag: string
+  title: string
+  description: string
+}
+
+/** A radio group drawn as selectable tiles: native radios keep keyboard and screen-reader behavior. */
+function Tiles<T extends string>({ name, legend, options, value, onChange }: {
+  name: string
+  legend: string
+  options: TileOption<T>[]
+  value: T
+  onChange: (id: T) => void
+}) {
+  return (
+    <fieldset className="tiles span-all">
+      <legend>{legend}</legend>
+      {options.map((o) => (
+        <label key={o.id} className={`tile ${o.id === value ? 'selected' : ''}`}>
+          <input type="radio" name={name} value={o.id} checked={o.id === value} onChange={() => onChange(o.id)} />
+          <span className="tile-tag">{o.tag}</span>
+          <span className="tile-title">{o.title}</span>
+          <span className="tile-desc">{o.description}</span>
+        </label>
+      ))}
+    </fieldset>
+  )
+}
+
 // --- backtests ------------------------------------------------------------------------------------------
 
 type BacktestKind = 'buy_and_hold' | LongShortStrategy
 
-const STRATEGIES: { id: BacktestKind; label: string }[] = [
-  { id: 'buy_and_hold', label: 'Buy and hold' },
-  { id: 'moving_average', label: 'Long-short · moving-average crossover' },
-  { id: 'time_series_momentum', label: 'Long-short · time-series momentum' },
-  { id: 'rsi_mean_reversion', label: 'Long-short · RSI mean reversion' },
+const STRATEGIES: TileOption<BacktestKind>[] = [
+  {
+    id: 'buy_and_hold',
+    tag: 'Benchmark',
+    title: 'Buy and hold',
+    description: 'Buy on the start date and hold to the end.',
+  },
+  {
+    id: 'moving_average',
+    tag: 'Long-short · trend',
+    title: 'Moving-average crossover',
+    description: 'Long when the fast average is above the slow one, short when below.',
+  },
+  {
+    id: 'time_series_momentum',
+    tag: 'Long-short · momentum',
+    title: 'Time-series momentum',
+    description: 'Each month, long after a rising trailing year, short after a falling one.',
+  },
+  {
+    id: 'rsi_mean_reversion',
+    tag: 'Long-short · mean reversion',
+    title: 'RSI mean reversion',
+    description: 'Buy when oversold, short when overbought, exit at the midline.',
+  },
 ]
 
 const PARAMS: Record<LongShortStrategy, { key: string; label: string; value: number; min?: number; max?: number }[]> = {
@@ -126,16 +176,7 @@ function Backtest() {
     <div className="card">
       <h3>Backtest</h3>
       <form className="form" onSubmit={submit}>
-        <label className="span-all">
-          Strategy
-          <select value={kind} onChange={(e) => choose(e.target.value as BacktestKind)} aria-label="Strategy">
-            {STRATEGIES.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Tiles name="strategy" legend="Strategy" options={STRATEGIES} value={kind} onChange={choose} />
         <Field label="Symbol">
           <input value={form.symbol} onChange={(e) => setForm({ ...form, symbol: e.target.value.toUpperCase() })} required />
         </Field>
@@ -248,6 +289,22 @@ function LongShortView({ result }: { result: LongShortResult }) {
 
 type StudyKind = 'single' | 'earnings' | 'large_moves'
 
+const STUDIES: TileOption<StudyKind>[] = [
+  { id: 'single', tag: 'One event', title: 'Single date', description: 'Abnormal returns around a date you choose.' },
+  {
+    id: 'earnings',
+    tag: 'Recurring',
+    title: 'Earnings announcements',
+    description: 'Average reaction to past earnings, split into beats and misses.',
+  },
+  {
+    id: 'large_moves',
+    tag: 'Detected',
+    title: 'Large daily moves',
+    description: 'What tends to follow unusually big up or down days.',
+  },
+]
+
 function EventStudy() {
   const [kind, setKind] = useState<StudyKind>('single')
   const [symbol, setSymbol] = useState('NVDA')
@@ -281,14 +338,7 @@ function EventStudy() {
     <div className="card">
       <h3>Event study · market model</h3>
       <form className="form" onSubmit={submit}>
-        <label className="span-all">
-          Event type
-          <select value={kind} onChange={(e) => choose(e.target.value as StudyKind)} aria-label="Event type">
-            <option value="single">Single date</option>
-            <option value="earnings">Earnings announcements</option>
-            <option value="large_moves">Large daily moves</option>
-          </select>
-        </label>
+        <Tiles name="event-type" legend="Event type" options={STUDIES} value={kind} onChange={choose} />
         <Field label="Symbol">
           <input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} required />
         </Field>
