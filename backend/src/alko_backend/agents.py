@@ -73,7 +73,8 @@ FOCUSED_AGENTS = [
         "backtest",
         "Backtest analyst",
         "Buy-and-hold and long-short strategy backtests.",
-        "Run backtests (buy and hold; long-short moving-average, time-series momentum and RSI mean reversion) and "
+        "Run backtests (buy and hold; long-short moving-average, time-series momentum, RSI mean reversion and "
+        "Kansas City Fed policy-rate uncertainty timing) and "
         "compare each strategy with buy and hold on return, risk and drawdown. Explain the limits: in-sample "
         "parameters, costs, short-borrow costs ignored, one symbol, survivorship. Never present a backtest as a "
         "forecast or a recommendation.",

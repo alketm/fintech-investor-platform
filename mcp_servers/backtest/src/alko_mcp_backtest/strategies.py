@@ -56,6 +56,28 @@ def rsi_mean_reversion_positions(
     return pd.Series(out, index=closes.index)
 
 
+def uncertainty_zscore(
+    closes: pd.Series, uncertainty: pd.Series, lookback_days: int, lag_days: int
+) -> pd.Series:
+    """Z-score of an uncertainty index on each trading day, using the value from `lag_days` trading days before.
+
+    The index is aligned to trading days by carrying the last published value forward.
+    """
+    aligned = uncertainty.reindex(closes.index.union(uncertainty.index)).ffill().reindex(closes.index)
+    lagged = aligned.shift(lag_days)
+    mean = lagged.rolling(lookback_days, min_periods=lookback_days // 2).mean()
+    std = lagged.rolling(lookback_days, min_periods=lookback_days // 2).std()
+    return (lagged - mean) / std.where(std > 0)
+
+
+def policy_uncertainty_positions(
+    closes: pd.Series, uncertainty: pd.Series, lookback_days: int, threshold: float, lag_days: int
+) -> pd.Series:
+    """Short when uncertainty is unusually high (z > threshold), long when unusually low (z < -threshold)."""
+    z = uncertainty_zscore(closes, uncertainty, lookback_days, lag_days)
+    return pd.Series(np.select([z > threshold, z < -threshold], [-1.0, 1.0], 0.0), index=closes.index)
+
+
 # --- engine ----------------------------------------------------------------------------------------------
 
 

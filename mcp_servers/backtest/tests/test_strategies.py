@@ -89,3 +89,22 @@ def test_stats_drawdown_counts_drop_from_start():
 def test_run_backtest_needs_data():
     with pytest.raises(ValueError):
         st.run_backtest(daily([1, 2]), daily([1, 1]), pd.Timestamp("2025-01-01"), 1000, 0)
+
+
+def test_policy_uncertainty_positions_follow_zscore_with_lag():
+    closes = daily([100.0] * 60)
+    index = daily([1.0] * 40 + [5.0] * 10 + [0.0] * 10)  # calm, then a spike, then unusually low
+    pos = st.policy_uncertainty_positions(closes, index, lookback_days=30, threshold=0.5, lag_days=1)
+    first_spike = closes.index[40]
+    assert pos[first_spike] == 0  # the spike is only known with a one-day lag
+    assert pos[closes.index[41]] == -1  # high uncertainty -> short
+    assert pos[closes.index[51]] == 1  # unusually low -> long
+    assert (pos.iloc[:15] == 0).all()  # not enough history for a z-score yet
+
+
+def test_uncertainty_index_is_aligned_to_trading_days():
+    closes = daily([100.0] * 5, start="2025-01-06")  # Mon..Fri
+    index = pd.Series([1.0, 3.0], index=pd.to_datetime(["2025-01-03", "2025-01-08"]))  # Fri before, Wed
+    z = st.uncertainty_zscore(closes, index, lookback_days=2, lag_days=0)
+    aligned = index.reindex(closes.index.union(index.index)).ffill().reindex(closes.index)
+    assert aligned.tolist() == [1.0, 1.0, 3.0, 3.0, 3.0] and len(z) == 5

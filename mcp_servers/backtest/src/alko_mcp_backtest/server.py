@@ -7,11 +7,13 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from alko_mcp_backtest import strategies
 from alko_mcp_backtest.analytics import buy_and_hold_stats
+from alko_mcp_macro import fred
 
 mcp = MCPServer(
     "alko-backtest",
     instructions="Historical backtests on daily dividend-adjusted closes: buy and hold, and long-short "
-    "strategies (moving-average crossover, time-series momentum, RSI mean reversion). Results are simulations, "
+    "strategies (moving-average crossover, time-series momentum, RSI mean reversion, Kansas City Fed policy-rate "
+    "uncertainty). Results are simulations, "
     "not recommendations.",
 )
 
@@ -24,6 +26,14 @@ def _history(symbol: str, start: str, end: str) -> pd.Series:
     closes = history["Close"]
     closes.index = pd.DatetimeIndex(closes.index).tz_localize(None)
     return closes
+
+
+def _policy_uncertainty(start: str) -> pd.Series:
+    """Kansas City Fed's Measure of Policy Rate Uncertainty (FRED KCPRU), daily."""
+    try:
+        return fred.series("KCPRU", start=start)
+    except fred.FredError as e:
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -161,6 +171,65 @@ def backtest_rsi_mean_reversion(
         f"Long when RSI({period}) < {lower:g}, short when > {upper:g}; exit when RSI crosses {exit_level:g}.",
         {"period": period, "lower": lower, "upper": upper, "exit_level": exit_level},
     )
+
+
+@mcp.tool()
+def backtest_policy_uncertainty(
+    symbol: str,
+    start: str,
+    end: str,
+    lookback_days: int = 252,
+    threshold: float = 0.5,
+    signal_lag_days: int = 1,
+    initial_capital: float = 10_000.0,
+    cost_bps: float = 5.0,
+) -> dict:
+    """Long-short timing with the Kansas City Fed's Policy Rate Uncertainty index (KC PRU, option-implied
+    uncertainty about the policy rate, from FRED): z-score of KC PRU against its trailing `lookback_days` mean,
+    using the value from `signal_lag_days` trading days earlier. Short the symbol when z > `threshold`
+    (unusually high uncertainty), long when z < -`threshold`, flat in between. Same outputs as the other
+    long-short backtests plus the latest KC PRU reading and how often each signal applied."""
+    if lookback_days < 20 or threshold < 0 or signal_lag_days < 0:
+        raise ToolError("Need lookback_days >= 20, threshold >= 0 and signal_lag_days >= 0")
+    try:
+        warm = pd.Timestamp(start) - pd.Timedelta(days=int(lookback_days * 1.5) + 60)
+    except ValueError as e:
+        raise ToolError(f"Dates must be YYYY-MM-DD: {e}") from e
+    index = _policy_uncertainty(warm.strftime("%Y-%m-%d"))
+    if index.empty:
+        raise ToolError("No Kansas City Fed policy-rate uncertainty data returned")
+
+    def signal(closes: pd.Series) -> pd.Series:
+        return strategies.policy_uncertainty_positions(
+            closes, index, lookback_days, threshold, signal_lag_days
+        )
+
+    result = _long_short(
+        symbol,
+        start,
+        end,
+        lookback_days,
+        signal,
+        initial_capital,
+        cost_bps,
+        f"Short when Kansas City Fed policy-rate uncertainty is more than {threshold:g} standard deviations above "
+        f"its {lookback_days}-day average, long when more than {threshold:g} below, flat otherwise "
+        f"(index lagged {signal_lag_days} trading day{'s' if signal_lag_days != 1 else ''}).",
+        {"lookback_days": lookback_days, "threshold": threshold, "signal_lag_days": signal_lag_days},
+    )
+    closes = _history(result["symbol"], start, end)
+    z = strategies.uncertainty_zscore(closes, index, lookback_days, signal_lag_days).dropna()
+    at_end = index[index.index <= closes.index[-1]]  # the reading as of the test's last day, not today
+    result["uncertainty"] = {
+        "source": "Kansas City Fed's Measure of Policy Rate Uncertainty (FRED KCPRU), percentage points",
+        "value_at_end": round(float(at_end.iloc[-1]), 3) if len(at_end) else None,
+        "value_date": str(at_end.index[-1].date()) if len(at_end) else None,
+        "zscore_at_end": round(float(z.iloc[-1]), 2) if len(z) else None,
+        "pct_days_high": round(float((z > threshold).mean()) * 100, 1) if len(z) else None,
+        "pct_days_low": round(float((z < -threshold).mean()) * 100, 1) if len(z) else None,
+        "pct_days_neutral": round(float(z.abs().le(threshold).mean()) * 100, 1) if len(z) else None,
+    }
+    return result
 
 
 def main() -> None:

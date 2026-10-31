@@ -24,7 +24,7 @@ MCP_SERVERS = {
 }
 
 # MCP servers start with a minimal environment; these variables are passed through to the named server only.
-MCP_SERVER_ENV = {"macro": ("FRED_API_KEY",)}
+MCP_SERVER_ENV = {"macro": ("FRED_API_KEY",), "backtest": ("FRED_API_KEY",)}
 
 
 def load_env_file(path: Path = ENV_FILE) -> None:

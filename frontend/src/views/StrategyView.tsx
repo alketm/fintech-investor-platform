@@ -126,9 +126,18 @@ const STRATEGIES: TileOption<BacktestKind>[] = [
     title: 'RSI mean reversion',
     description: 'Buy when oversold, short when overbought, exit at the midline.',
   },
+  {
+    id: 'policy_uncertainty',
+    tag: 'Long-short · macro',
+    title: 'Policy-rate uncertainty',
+    description: 'Kansas City Fed index: short when policy uncertainty spikes, long when it is unusually low.',
+  },
 ]
 
-const PARAMS: Record<LongShortStrategy, { key: string; label: string; value: number; min?: number; max?: number }[]> = {
+const PARAMS: Record<
+  LongShortStrategy,
+  { key: string; label: string; value: number; min?: number; max?: number; step?: number }[]
+> = {
   moving_average: [
     { key: 'fast', label: 'Fast average (days)', value: 50, min: 2 },
     { key: 'slow', label: 'Slow average (days)', value: 200, min: 3 },
@@ -142,6 +151,11 @@ const PARAMS: Record<LongShortStrategy, { key: string; label: string; value: num
     { key: 'lower', label: 'Go long below', value: 30, min: 1, max: 99 },
     { key: 'upper', label: 'Go short above', value: 70, min: 1, max: 99 },
     { key: 'exit_level', label: 'Exit at', value: 50, min: 1, max: 99 },
+  ],
+  policy_uncertainty: [
+    { key: 'lookback_days', label: 'Lookback (days)', value: 252, min: 20 },
+    { key: 'threshold', label: 'Threshold (std devs)', value: 0.5, min: 0, step: 0.25 },
+    { key: 'signal_lag_days', label: 'Signal lag (days)', value: 1, min: 0 },
   ],
 }
 
@@ -200,6 +214,7 @@ function Backtest() {
                   value={params[p.key] ?? p.value}
                   min={p.min}
                   max={p.max}
+                  step={p.step}
                   onChange={(n) => setParams({ ...params, [p.key]: n })}
                 />
               </Field>
@@ -273,6 +288,19 @@ function LongShortView({ result }: { result: LongShortResult }) {
         ]}
         format={(n) => money(n).replace(/\.\d+$/, '')}
       />
+      {result.uncertainty && (
+        <div className="stats compact">
+          <Stat
+            label={`KC PRU on ${result.uncertainty.value_date ?? '—'}`}
+            value={result.uncertainty.value_at_end == null ? '—' : `${result.uncertainty.value_at_end.toFixed(2)} pts`}
+          />
+          <Stat label="Z-score at end" value={result.uncertainty.zscore_at_end?.toFixed(2) ?? '—'} />
+          <Stat
+            label="High / low / neutral"
+            value={`${result.uncertainty.pct_days_high} / ${result.uncertainty.pct_days_low} / ${result.uncertainty.pct_days_neutral}%`}
+          />
+        </div>
+      )}
       <div className="stats compact">
         <Stat label="Position changes" value={String(a.position_changes)} />
         <Stat label="Long / short / flat" value={`${a.pct_days_long} / ${a.pct_days_short} / ${a.pct_days_flat}%`} />

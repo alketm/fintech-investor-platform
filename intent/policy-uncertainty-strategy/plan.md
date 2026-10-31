@@ -1,0 +1,21 @@
+# Plan: Policy-rate uncertainty strategy
+
+**Spec:** ./spec.md
+
+## Files that change
+- `mcp_servers/backtest/src/alko_mcp_backtest/strategies.py` — `policy_uncertainty_positions`.
+- `mcp_servers/backtest/src/alko_mcp_backtest/server.py` — tool; KC PRU via `alko_mcp_macro.fred`.
+- `mcp_servers/backtest/pyproject.toml` — depend on `alko-mcp-macro` (shared FRED client).
+- `backend/src/alko_backend/config.py` — pass `FRED_API_KEY` to the backtest server too.
+- `backend/src/alko_backend/main.py`, `agents.py` — API strategy and agent instructions.
+- `frontend/src/api.ts`, `frontend/src/views/StrategyView.tsx` — tile and parameters.
+- Tests in each layer.
+
+## Order of work
+Rule + tests → tool + tests → backend → UI → live check.
+
+## Risks
+- Reusing the macro package's FRED client couples two servers; acceptable for one shared HTTP helper.
+
+## Proof
+`make test`, `make lint`, `make build`, live API run and Strategy view screenshot.

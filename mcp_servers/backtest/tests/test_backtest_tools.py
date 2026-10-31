@@ -72,4 +72,32 @@ async def test_tools_registered():
         "backtest_moving_average",
         "backtest_time_series_momentum",
         "backtest_rsi_mean_reversion",
+        "backtest_policy_uncertainty",
     }
+
+
+def test_policy_uncertainty_tool(monkeypatch):
+    rng = np.random.default_rng(4)
+    index = pd.Series(1.0 + np.abs(rng.normal(0, 0.3, len(DAYS))), index=DAYS)
+    monkeypatch.setattr(
+        server, "_policy_uncertainty", lambda start: index[index.index >= start]
+    )  # runs to 2025-12
+    out = server.backtest_policy_uncertainty("SPY", "2022-01-01", "2025-01-01")
+    assert out["parameters"] == {
+        "lookback_days": 252,
+        "threshold": 0.5,
+        "signal_lag_days": 1,
+        "cost_bps": 5.0,
+    }
+    u = out["uncertainty"]
+    assert u["value_date"] <= "2025-01-01" and "KCPRU" in u["source"]  # as of the test end, not today
+    assert u["pct_days_high"] + u["pct_days_low"] + u["pct_days_neutral"] == pytest.approx(100, abs=0.2)
+    assert "Kansas City Fed" in out["rule"]
+    with pytest.raises(ToolError, match="lookback_days >= 20"):
+        server.backtest_policy_uncertainty("SPY", "2022-01-01", "2025-01-01", lookback_days=5)
+
+
+def test_policy_uncertainty_needs_fred_key(monkeypatch):
+    monkeypatch.delenv("FRED_API_KEY", raising=False)
+    with pytest.raises(ToolError, match="FRED_API_KEY is not set"):
+        server.backtest_policy_uncertainty("SPY", "2022-01-01", "2025-01-01")

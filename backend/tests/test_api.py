@@ -129,3 +129,22 @@ def test_event_study_endpoints(client, pool):
         == 200
     )
     assert pool.calls[-1][1] == "run_large_move_event_study" and pool.calls[-1][2]["threshold_sigma"] == 2.5
+
+
+def test_long_short_policy_uncertainty_maps_params(client, pool):
+    r = client.post(
+        "/api/strategy/long-short",
+        json={
+            "strategy": "policy_uncertainty",
+            "symbol": "SPY",
+            "start": "2020-01-01",
+            "end": "2024-01-01",
+            "params": {"lookback_days": 126, "threshold": 1.0, "signal_lag_days": 2},
+        },
+    )
+    assert r.status_code == 200
+    _, tool, args = pool.calls[-1]
+    assert tool == "backtest_policy_uncertainty"
+    assert (
+        args["signal_lag_days"] == 2 and isinstance(args["signal_lag_days"], int) and args["threshold"] == 1.0
+    )

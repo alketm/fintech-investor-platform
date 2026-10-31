@@ -69,7 +69,7 @@ export interface EventStudyResult {
   car_t_stat: number | null
 }
 
-export type LongShortStrategy = 'moving_average' | 'time_series_momentum' | 'rsi_mean_reversion'
+export type LongShortStrategy = 'moving_average' | 'time_series_momentum' | 'rsi_mean_reversion' | 'policy_uncertainty'
 
 export interface StrategyStats {
   total_return_pct: number
@@ -101,6 +101,15 @@ export interface LongShortResult {
   }
   equity_curve: { date: string; strategy: number; buy_and_hold: number }[]
   assumptions: string
+  uncertainty?: {
+    source: string
+    value_at_end: number | null
+    value_date: string | null
+    zscore_at_end: number | null
+    pct_days_high: number | null
+    pct_days_low: number | null
+    pct_days_neutral: number | null
+  }
 }
 
 export interface PathPoint {

@@ -66,7 +66,7 @@ describe('StrategyView', () => {
   it('shows strategies and event types as tiles with one selected', () => {
     render(<StrategyView />)
     const strategy = screen.getByRole('group', { name: 'Strategy' })
-    expect(within(strategy).getAllByRole('radio')).toHaveLength(4)
+    expect(within(strategy).getAllByRole('radio')).toHaveLength(5)
     expect(within(strategy).getByRole('radio', { name: /Buy and hold/ })).toBeChecked()
     expect(within(screen.getByRole('group', { name: 'Event type' })).getAllByRole('radio')).toHaveLength(3)
   })
