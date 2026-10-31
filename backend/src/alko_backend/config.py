@@ -20,6 +20,7 @@ MCP_SERVERS = {
     "event_study": "alko_mcp_event_study.server",
     "institutional": "alko_mcp_institutional.server",
     "macro": "alko_mcp_macro.server",
+    "market": "alko_mcp_market.server",
 }
 
 # MCP servers start with a minimal environment; these variables are passed through to the named server only.

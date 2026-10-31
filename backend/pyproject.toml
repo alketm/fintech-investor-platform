@@ -15,6 +15,7 @@ dependencies = [
   "alko-mcp-event-study",
   "alko-mcp-institutional",
   "alko-mcp-macro",
+  "alko-mcp-market",
 ]
 
 [tool.uv.sources]
@@ -26,6 +27,7 @@ alko-mcp-backtest = { workspace = true }
 alko-mcp-event-study = { workspace = true }
 alko-mcp-institutional = { workspace = true }
 alko-mcp-macro = { workspace = true }
+alko-mcp-market = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

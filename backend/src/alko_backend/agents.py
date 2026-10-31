@@ -101,6 +101,15 @@ FOCUSED_AGENTS = [
         "labels as heuristics, and don't turn macro reads into market-timing calls.",
         servers=("macro",),
     ),
+    AgentSpec(
+        "market",
+        "Market analyst",
+        "Market summary, sectors, daily movers, a stock's technicals and price history.",
+        "Describe how the market and sectors are doing, what is moving today, and a stock's trend, momentum and "
+        "relative strength. State the window and date. Technical indicators describe past prices; never present "
+        "them as buy or sell signals.",
+        servers=("market",),
+    ),
 ]
 
 ADVISOR = AgentSpec(

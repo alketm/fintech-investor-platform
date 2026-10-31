@@ -8,10 +8,10 @@ Python 3.12 via uv, Node via npm; both live in `~/.local/bin` (the Makefile adds
 - `make install` — `uv sync --all-packages` + `npm install`
 - `make dev` — backend on :8000 and UI on :5173. Needs `ANTHROPIC_API_KEY` for chat and `FRED_API_KEY` for the
   macro server, from the shell or the git-ignored `.env` (the owner edits `.env`; never write keys to files).
-- `make test` — pytest then vitest. Healthy: `92 passed` and `Tests  4 passed`. Exits non-zero on failure.
+- `make test` — pytest then vitest. Healthy: `111 passed` and `Tests  4 passed`. Exits non-zero on failure.
 - `make lint` — ruff check, ruff format --check, oxlint, `tsc -b`. Healthy: `All checks passed!`, no tsc output.
 - `make build` — frontend bundle. Healthy: `✓ built in …`
-- Health check with backend running: `curl localhost:8000/api/health` lists eight MCP servers and their tools.
+- Health check with backend running: `curl localhost:8000/api/health` lists nine MCP servers and their tools.
 
 ## Workflow
 Every feature moves through `intent/<feature>/`:
