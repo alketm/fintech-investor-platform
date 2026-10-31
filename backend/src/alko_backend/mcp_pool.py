@@ -1,6 +1,7 @@
 """Long-lived MCP client sessions, one stdio subprocess per server."""
 
 import json
+import os
 import sys
 from contextlib import AsyncExitStack
 from typing import Any
@@ -8,7 +9,7 @@ from typing import Any
 from mcp import Client
 from mcp.client.stdio import StdioServerParameters
 
-from alko_backend.config import MCP_SERVERS
+from alko_backend.config import MCP_SERVER_ENV, MCP_SERVERS
 
 
 class ToolError(RuntimeError):
@@ -22,9 +23,9 @@ class McpPool:
 
     async def start(self, stack: AsyncExitStack, servers: dict[str, str] = MCP_SERVERS) -> None:
         for name, module in servers.items():
-            params = StdioServerParameters(
-                command=sys.executable, args=["-m", module], env={"PYTHONWARNINGS": "ignore"}
-            )
+            env = {"PYTHONWARNINGS": "ignore"}
+            env |= {var: os.environ[var] for var in MCP_SERVER_ENV.get(name, ()) if var in os.environ}
+            params = StdioServerParameters(command=sys.executable, args=["-m", module], env=env)
             client = await stack.enter_async_context(Client(params))
             self._clients[name] = client
             self.tools[name] = (await client.list_tools()).tools

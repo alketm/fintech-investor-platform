@@ -6,11 +6,12 @@ Changes to this file are reviewed like code.
 ## Commands
 Python 3.12 via uv, Node via npm; both live in `~/.local/bin` (the Makefile adds it to PATH).
 - `make install` — `uv sync --all-packages` + `npm install`
-- `make dev` — backend on :8000 and UI on :5173. Needs `ANTHROPIC_API_KEY` for chat.
-- `make test` — pytest then vitest. Healthy: `66 passed` and `Tests  4 passed`. Exits non-zero on failure.
+- `make dev` — backend on :8000 and UI on :5173. Needs `ANTHROPIC_API_KEY` for chat and `FRED_API_KEY` for the
+  macro server, from the shell or the git-ignored `.env` (the owner edits `.env`; never write keys to files).
+- `make test` — pytest then vitest. Healthy: `92 passed` and `Tests  4 passed`. Exits non-zero on failure.
 - `make lint` — ruff check, ruff format --check, oxlint, `tsc -b`. Healthy: `All checks passed!`, no tsc output.
 - `make build` — frontend bundle. Healthy: `✓ built in …`
-- Health check with backend running: `curl localhost:8000/api/health` lists seven MCP servers and their tools.
+- Health check with backend running: `curl localhost:8000/api/health` lists eight MCP servers and their tools.
 
 ## Workflow
 Every feature moves through `intent/<feature>/`:
@@ -38,7 +39,8 @@ If a test fails, fix the code, not the test. Never skip or delete a failing test
   Agents in `agents.py`: `advisor` only delegates (`ask_<agent>` tools); each focused agent only sees its own
   MCP server's tools. Holdings seed: `backend/data/portfolios.json`.
 - `mcp_servers/<name>/` — one uv package per data domain; tools in `server.py`, pure math in `analytics.py`.
-  Market data only comes from here (yfinance), never directly from the backend.
+  Market data only comes from here (yfinance; FRED for `macro`), never directly from the backend.
+  MCP servers start with a minimal environment: list any variable a server needs in `MCP_SERVER_ENV`.
 - Adding an MCP server: new package, add to `MCP_SERVERS` in `backend/src/alko_backend/config.py` and to
   `backend/pyproject.toml`, then give a focused agent its name in `servers`.
 

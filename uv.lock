@@ -18,6 +18,7 @@ members = [
     "alko-mcp-event-study",
     "alko-mcp-financials",
     "alko-mcp-institutional",
+    "alko-mcp-macro",
     "alko-mcp-news",
     "alko-mcp-stocks",
     "alko-workspace",
@@ -33,6 +34,7 @@ dependencies = [
     { name = "alko-mcp-event-study" },
     { name = "alko-mcp-financials" },
     { name = "alko-mcp-institutional" },
+    { name = "alko-mcp-macro" },
     { name = "alko-mcp-news" },
     { name = "alko-mcp-stocks" },
     { name = "anthropic", extra = ["mcp"] },
@@ -48,6 +50,7 @@ requires-dist = [
     { name = "alko-mcp-event-study", editable = "mcp_servers/event_study" },
     { name = "alko-mcp-financials", editable = "mcp_servers/financials" },
     { name = "alko-mcp-institutional", editable = "mcp_servers/institutional" },
+    { name = "alko-mcp-macro", editable = "mcp_servers/macro" },
     { name = "alko-mcp-news", editable = "mcp_servers/news" },
     { name = "alko-mcp-stocks", editable = "mcp_servers/stocks" },
     { name = "anthropic", extras = ["mcp"], specifier = ">=1.0" },
@@ -141,6 +144,25 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "mcp", specifier = ">=1.2" },
+    { name = "pandas", specifier = ">=2.2" },
+    { name = "yfinance", specifier = ">=0.2.50" },
+]
+
+[[package]]
+name = "alko-mcp-macro"
+version = "0.1.0"
+source = { editable = "mcp_servers/macro" }
+dependencies = [
+    { name = "mcp" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "yfinance" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mcp", specifier = ">=1.2" },
+    { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "yfinance", specifier = ">=0.2.50" },
 ]

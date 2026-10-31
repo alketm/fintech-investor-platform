@@ -8,12 +8,14 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from alko_backend.agents import AGENTS, AgentRunner
+from alko_backend.config import load_env_file
 from alko_backend.mcp_pool import McpPool, ToolError
 from alko_backend.portfolios import analyze, describe_for_agent, load_portfolios, value_portfolio
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    load_env_file()
     async with AsyncExitStack() as stack:
         pool = McpPool()
         await pool.start(stack)

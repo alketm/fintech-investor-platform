@@ -27,8 +27,11 @@ Each stage ends with a commit, so git history is the audit trail.
 ```bash
 make install
 export ANTHROPIC_API_KEY=...   # for chat
+export FRED_API_KEY=...        # for the macro server (free: fred.stlouisfed.org/docs/api/api_key.html)
 make dev                       # UI at http://localhost:5173
 ```
+
+Instead of exporting, you can put `KEY=value` lines in a `.env` file at the project root (git-ignored).
 
 ## Local setup
 After cloning, enable the repo's git hooks (blocks direct commits on `main`):

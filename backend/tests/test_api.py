@@ -76,3 +76,18 @@ def test_chat_rejects_unknown_agent_and_assistant_last(client):
     )
     bad = {"messages": [{"role": "user", "content": "a"}, {"role": "assistant", "content": "b"}]}
     assert client.post("/api/chat", json=bad).status_code == 422
+
+
+def test_load_env_file_does_not_override(tmp_path, monkeypatch):
+    from alko_backend.config import load_env_file
+
+    env = tmp_path / ".env"
+    env.write_text("# comment\nALKO_TEST_A='from file'\nALKO_TEST_B=from file\n")
+    monkeypatch.setenv("ALKO_TEST_B", "from shell")
+    monkeypatch.delenv("ALKO_TEST_A", raising=False)
+    load_env_file(env)
+    import os
+
+    assert os.environ["ALKO_TEST_A"] == "from file"
+    assert os.environ["ALKO_TEST_B"] == "from shell"
+    monkeypatch.delenv("ALKO_TEST_A")

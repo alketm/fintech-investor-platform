@@ -92,6 +92,15 @@ FOCUSED_AGENTS = [
         "don't read a single quarter's moves as a signal on their own.",
         servers=("institutional",),
     ),
+    AgentSpec(
+        "macro",
+        "Macro analyst",
+        "Economy, rates, inflation, consumer health and how a stock relates to them.",
+        "Explain the US macro backdrop (growth, inflation, policy, market stress, recession signals, consumer "
+        "health) and, when asked about a holding, how it relates to it. Cite the observation dates, treat regime "
+        "labels as heuristics, and don't turn macro reads into market-timing calls.",
+        servers=("macro",),
+    ),
 ]
 
 ADVISOR = AgentSpec(
