@@ -163,3 +163,34 @@ def test_sentiment_trend_table_shifts_by_release_lag():
     assert list(trend.index.astype(str)) == ["2024-04"]
     row = trend.iloc[0]
     assert (row["value"], row["moving_average"], row["signal"]) == (76.0, 72.0, 1.0)
+
+
+def test_realized_volatility_is_annualized_percent():
+    # Alternating +1% / -1% days: daily std ~1%, so about 15.9% annualized.
+    closes = pd.Series(
+        100 * np.cumprod([1] + [1.01, 0.99] * 15), index=pd.bdate_range("2024-01-01", periods=31)
+    )
+    rv = st.realized_volatility(closes, 20)
+    assert rv.iloc[:20].isna().all()
+    assert rv.iloc[-1] == pytest.approx(1.0 * np.sqrt(20 / 19) * np.sqrt(252), rel=0.02)
+
+
+def test_vix_band_signals_follow_the_state_machine():
+    ratios = pd.Series([np.nan, 2.1, 1.9, 1.75, 1.6, 1.75, 1.85, 1.8, 2.05])
+    # nan: no window yet. 2.1 > 2.0: short. 1.9: short holds above 1.8. 1.75 < 1.8: neutral.
+    # 1.6 < 1.7: long. 1.75: long holds below 1.8. 1.85 > 1.8: neutral. 1.8: between, neutral. 2.05: short.
+    signals = st.vix_band_signals(ratios, 2.0, 1.7, 1.8)
+    assert np.isnan(signals.iloc[0])
+    assert signals.iloc[1:].tolist() == [-1, -1, 0, 1, 1, 0, 0, -1]
+    # One step per day: a long that sees 2.5 goes neutral first, then short.
+    assert st.vix_band_signals(pd.Series([1.5, 2.5, 2.5]), 2.0, 1.7, 1.8).tolist() == [1, 0, -1]
+
+
+def test_vix_volatility_positions_align_to_the_traded_symbol():
+    days = pd.bdate_range("2024-01-01", periods=40)
+    spy = pd.Series(100 * np.cumprod([1] + [1.01, 0.99] * 19 + [1.01]), index=days)  # ~16% realized vol
+    vix = pd.Series(25.0, index=days.delete(30))  # 25 / 16 < 1.7: long; one VIX day missing
+    closes = pd.Series(50.0, index=days[5:])
+    pos = st.vix_volatility_positions(closes, spy, vix, 20, 2.0, 1.7, 1.8)
+    assert pos.index.equals(closes.index)
+    assert (pos[: days[19]] == 0).all() and (pos[days[20] :] == 1).all()

@@ -146,6 +146,58 @@ def sentiment_trend_positions(
     return decided.ffill().fillna(0.0)
 
 
+def realized_volatility(closes: pd.Series, window: int) -> pd.Series:
+    """Rolling standard deviation of daily returns over `window` days, annualized, in percentage points."""
+    return closes.pct_change().rolling(window).std() * np.sqrt(TRADING_DAYS) * 100
+
+
+def vix_ratio(spy: pd.Series, vix: pd.Series, window: int) -> pd.DataFrame:
+    """VIX close, SPY realized volatility and their ratio on SPY's trading days (VIX carried over any gap)."""
+    vix_on_spy_days = align_benchmark(vix, spy.index)
+    rv = realized_volatility(spy, window)
+    return pd.DataFrame(
+        {"vix": vix_on_spy_days, "realized_vol": rv, "ratio": vix_on_spy_days / rv.where(rv > 0)}
+    )
+
+
+def vix_band_signals(ratio: pd.Series, short_above: float, long_below: float, exit_level: float) -> pd.Series:
+    """Positions from VIX / realized volatility, one step per day, starting neutral.
+
+    From neutral: short above `short_above`, long below `long_below`, else stay neutral.
+    From short: neutral once below `exit_level`. From long: neutral once above `exit_level`.
+    One transition per day, so leaving a long or short always passes through neutral.
+    Days without a ratio (no full volatility window yet) give NaN and keep the state neutral.
+    """
+    state, out = 0.0, []
+    for r in ratio:
+        if np.isnan(r):
+            out.append(np.nan)
+            continue
+        if state == 0:
+            state = -1.0 if r > short_above else 1.0 if r < long_below else 0.0
+        elif state == -1 and r < exit_level:
+            state = 0.0
+        elif state == 1 and r > exit_level:
+            state = 0.0
+        out.append(state)
+    return pd.Series(out, index=ratio.index)
+
+
+def vix_volatility_positions(
+    closes: pd.Series,
+    spy: pd.Series,
+    vix: pd.Series,
+    window: int,
+    short_above: float,
+    long_below: float,
+    exit_level: float,
+) -> pd.Series:
+    """`vix_band_signals` decided at each SPY close and applied to the traded symbol's trading days."""
+    ratio = vix_ratio(spy, vix, window)["ratio"]
+    signals = vix_band_signals(ratio, short_above, long_below, exit_level)
+    return align_benchmark(signals.dropna(), closes.index).fillna(0.0)
+
+
 # --- engine ----------------------------------------------------------------------------------------------
 
 

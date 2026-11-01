@@ -84,6 +84,7 @@ export type LongShortStrategy =
   | 'rsi_mean_reversion'
   | 'policy_uncertainty'
   | 'consumer_sentiment'
+  | 'vix_volatility'
 
 export interface StrategyStats {
   total_return_pct: number
@@ -136,6 +137,15 @@ export interface LongShortResult {
     moving_average_at_end: number | null
     ratio_pct_at_end: number | null
     signal_at_end: 'long' | 'short' | 'flat' | null
+  }
+  volatility?: {
+    source: string
+    date: string | null
+    vix_at_end: number | null
+    realized_vol_at_end: number | null
+    ratio_at_end: number | null
+    signal_at_end: 'long' | 'short' | 'flat' | null
+    median_ratio: number | null
   }
 }
 

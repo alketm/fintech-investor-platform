@@ -122,7 +122,7 @@ describe('StrategyView', () => {
     stubFetch()
     render(<StrategyView />)
     const strategy = screen.getByRole('group', { name: 'Strategy' })
-    expect(within(strategy).getAllByRole('radio')).toHaveLength(6)
+    expect(within(strategy).getAllByRole('radio')).toHaveLength(7)
     expect(within(strategy).getByRole('radio', { name: /Buy and hold/ })).toBeChecked()
     expect(within(screen.getByRole('group', { name: 'Event type' })).getAllByRole('radio')).toHaveLength(3)
   })
@@ -140,6 +140,16 @@ describe('StrategyView', () => {
     expect(screen.getByLabelText('Go short below (% of avg)')).toHaveValue(95)
     expect(screen.getByLabelText('Back to neutral at (% of avg)')).toHaveValue(96)
     vi.useRealTimers()
+  })
+
+  it('shows the VIX strategy thresholds as parameters', () => {
+    stubFetch()
+    render(<StrategyView />)
+    fireEvent.click(screen.getByRole('radio', { name: /VIX vs realized volatility/ }))
+    expect(screen.getByLabelText('Realized vol window (days)')).toHaveValue(20)
+    expect(screen.getByLabelText('Go short above (× realized)')).toHaveValue(2)
+    expect(screen.getByLabelText('Go long below (× realized)')).toHaveValue(1.7)
+    expect(screen.getByLabelText('Back to neutral at (× realized)')).toHaveValue(1.8)
   })
 
   it('shows inputs that match the chosen event study', () => {

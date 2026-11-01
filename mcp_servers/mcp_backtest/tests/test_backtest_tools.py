@@ -95,6 +95,7 @@ async def test_tools_registered():
         "backtest_rsi_mean_reversion",
         "backtest_policy_uncertainty",
         "backtest_consumer_sentiment",
+        "backtest_vix_volatility",
     }
 
 
@@ -172,3 +173,38 @@ def test_consumer_sentiment_needs_fred_key(monkeypatch):
     monkeypatch.delenv("FRED_API_KEY", raising=False)
     with pytest.raises(ToolError, match="FRED_API_KEY is not set"):
         server.backtest_consumer_sentiment("SPY", "2022-01-01", "2025-01-01")
+
+
+def test_vix_volatility_tool(monkeypatch):
+    rv = server.strategies.realized_volatility(PRICES, 20)
+    # A VIX that swings between 1.4x and 2.3x realized volatility, so every state is visited.
+    vix = (rv * (1.85 + 0.45 * np.sin(np.arange(len(rv)) / 15))).dropna()
+
+    def history(symbol, start, end):
+        series = vix if symbol == "^VIX" else PRICES
+        return series[(series.index >= start) & (series.index < end)]
+
+    monkeypatch.setattr(server, "_history", history)
+    out = server.backtest_vix_volatility("XLK", "2022-01-01", "2025-01-01")
+    assert out["parameters"] == {
+        "window_days": 20,
+        "short_above": 2.0,
+        "long_below": 1.7,
+        "exit_level": 1.8,
+        "cost_bps": 5.0,
+    }
+    v = out["volatility"]
+    assert v["date"] <= "2025-01-01" and v["ratio_at_end"] == pytest.approx(
+        v["vix_at_end"] / v["realized_vol_at_end"], abs=0.01
+    )
+    assert v["signal_at_end"] == out["activity"]["current_position"]
+    a = out["activity"]
+    assert a["pct_days_long"] > 0 and a["pct_days_short"] > 0 and a["pct_days_flat"] > 0
+    assert "short above 2x" in out["rule"] and "long goes neutral above 1.8x" in out["rule"]
+    assert "warning" not in out["parameters"]
+
+    with pytest.raises(ToolError, match="long_below <= exit_level"):
+        server.backtest_vix_volatility("XLK", "2022-01-01", "2025-01-01", exit_level=2.5)
+    monkeypatch.setattr(server, "_history", lambda symbol, start, end: pd.Series(dtype=float))
+    with pytest.raises(ToolError, match="No SPY history"):
+        server.backtest_vix_volatility("XLK", "2022-01-01", "2025-01-01")

@@ -13,7 +13,7 @@ mcp = MCPServer(
     "mcp_backtest",
     instructions="Historical backtests on daily dividend-adjusted closes: buy and hold, and long-short "
     "strategies (moving-average crossover, time-series momentum, RSI mean reversion, Kansas City Fed policy-rate "
-    "uncertainty, University of Michigan consumer sentiment trend). Every backtest also reports buying and holding a benchmark (SPY by default) over the same "
+    "uncertainty, University of Michigan consumer sentiment bands, VIX versus realized volatility). Every backtest also reports buying and holding a benchmark (SPY by default) over the same "
     "days. Results are simulations, not recommendations.",
 )
 
@@ -353,6 +353,77 @@ def backtest_consumer_sentiment(
         "signal_at_end": {1.0: "long", -1.0: "short"}.get(float(last["signal"]), "flat")
         if last is not None
         else None,
+    }
+    return result
+
+
+@mcp.tool()
+def backtest_vix_volatility(
+    symbol: str,
+    start: str,
+    end: str,
+    window_days: int = 20,
+    short_above: float = 2.0,
+    long_below: float = 1.7,
+    exit_level: float = 1.8,
+    initial_capital: float = 10_000.0,
+    cost_bps: float = 5.0,
+    benchmark: str = "SPY",
+) -> dict:
+    """Long-short timing with the VIX against SPY's realized volatility (the `window_days` standard deviation of
+    daily returns, annualized, in percentage points). Each day at the close, with ratio = VIX close / realized
+    volatility: from neutral, short above `short_above`, long below `long_below`, else stay neutral; a short goes
+    neutral once the ratio falls below `exit_level` and a long once it rises above `exit_level`. Positions apply
+    from the next day. Same outputs as the other long-short backtests plus the VIX, realized volatility and ratio
+    behind the last signal."""
+    if window_days < 5:
+        raise ToolError("Need window_days >= 5")
+    if not 0 < long_below <= exit_level <= short_above:
+        raise ToolError("Need 0 < long_below <= exit_level <= short_above")
+    warmup = 252  # a year before the start: fills the volatility window and settles the state machine
+    try:
+        warm_start = (pd.Timestamp(start) - pd.Timedelta(days=int(warmup * 1.5) + 30)).strftime("%Y-%m-%d")
+    except ValueError as e:
+        raise ToolError(f"Dates must be YYYY-MM-DD: {e}") from e
+    spy, vix = _history("SPY", warm_start, end), _history("^VIX", warm_start, end)
+    if spy.empty or vix.empty:
+        raise ToolError(f"No {'SPY' if spy.empty else 'VIX'} history between {start} and {end}")
+    bands = (short_above, long_below, exit_level)
+
+    result = _long_short(
+        symbol,
+        start,
+        end,
+        warmup,
+        lambda c: strategies.vix_volatility_positions(c, spy, vix, window_days, *bands),
+        initial_capital,
+        cost_bps,
+        f"Daily, with the VIX as a multiple of SPY's {window_days}-day realized volatility: from neutral, short "
+        f"above {short_above:g}x, long below {long_below:g}x, else stay neutral; a short goes neutral below "
+        f"{exit_level:g}x, a long goes neutral above {exit_level:g}x.",
+        {
+            "window_days": window_days,
+            "short_above": short_above,
+            "long_below": long_below,
+            "exit_level": exit_level,
+        },
+        benchmark,
+    )
+    table = strategies.vix_ratio(spy, vix, window_days)
+    table["signal"] = strategies.vix_band_signals(table["ratio"], *bands)
+    known = table[table.index <= pd.Timestamp(result["end"])].dropna()  # as of the test end, not today
+    last = known.iloc[-1] if len(known) else None
+    in_test = table[table.index >= pd.Timestamp(result["start"])]["ratio"].dropna()
+    result["volatility"] = {
+        "source": "CBOE VIX close and SPY realized volatility (annualized, percentage points), from Yahoo Finance",
+        "date": str(known.index[-1].date()) if last is not None else None,
+        "vix_at_end": round(float(last["vix"]), 2) if last is not None else None,
+        "realized_vol_at_end": round(float(last["realized_vol"]), 2) if last is not None else None,
+        "ratio_at_end": round(float(last["ratio"]), 2) if last is not None else None,
+        "signal_at_end": {1.0: "long", -1.0: "short"}.get(float(last["signal"]), "flat")
+        if last is not None
+        else None,
+        "median_ratio": round(float(in_test.median()), 2) if len(in_test) else None,
     }
     return result
 

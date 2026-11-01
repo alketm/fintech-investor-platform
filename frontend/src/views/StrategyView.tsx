@@ -169,6 +169,13 @@ const STRATEGIES: TileOption<BacktestKind>[] = [
     description:
       'Monthly, sentiment vs its 3-month average: long above 97%, short below 95%, back to neutral across 96%. Last 10 years.',
   },
+  {
+    id: 'vix_volatility',
+    tag: 'Long-short · volatility',
+    title: 'VIX vs realized volatility',
+    description:
+      'Daily, VIX as a multiple of SPY 20-day realized volatility: short above 2.0x, long below 1.7x, neutral across 1.8x.',
+  },
 ]
 
 /** Strategies that come with their own test period, in years up to today. */
@@ -212,6 +219,12 @@ const PARAMS: Record<
     { key: 'short_below_pct', label: 'Go short below (% of avg)', value: 95, min: 1, step: 0.5 },
     { key: 'exit_pct', label: 'Back to neutral at (% of avg)', value: 96, min: 1, step: 0.5 },
     { key: 'release_lag_months', label: 'Release lag (months)', value: 0, min: 0 },
+  ],
+  vix_volatility: [
+    { key: 'window_days', label: 'Realized vol window (days)', value: 20, min: 5 },
+    { key: 'short_above', label: 'Go short above (× realized)', value: 2.0, min: 0.1, step: 0.05 },
+    { key: 'long_below', label: 'Go long below (× realized)', value: 1.7, min: 0.1, step: 0.05 },
+    { key: 'exit_level', label: 'Back to neutral at (× realized)', value: 1.8, min: 0.1, step: 0.05 },
   ],
 }
 
@@ -412,6 +425,23 @@ function LongShortView({ result }: { result: LongShortResult }) {
             value={result.sentiment.ratio_pct_at_end == null ? '—' : `${result.sentiment.ratio_pct_at_end.toFixed(1)}%`}
           />
           <Stat label="Signal at end" value={result.sentiment.signal_at_end ?? '—'} />
+        </div>
+      )}
+      {result.volatility && (
+        <div className="stats compact">
+          <Stat label={`VIX on ${result.volatility.date ?? '—'}`} value={result.volatility.vix_at_end?.toFixed(2) ?? '—'} />
+          <Stat
+            label={`SPY ${result.parameters.window_days}-day realized vol`}
+            value={result.volatility.realized_vol_at_end == null ? '—' : `${result.volatility.realized_vol_at_end.toFixed(2)}%`}
+          />
+          <Stat
+            label="VIX / realized"
+            value={result.volatility.ratio_at_end == null ? '—' : `${result.volatility.ratio_at_end.toFixed(2)}×`}
+          />
+          <Stat
+            label="Median in test"
+            value={result.volatility.median_ratio == null ? '—' : `${result.volatility.median_ratio.toFixed(2)}×`}
+          />
         </div>
       )}
       <div className="stats compact">

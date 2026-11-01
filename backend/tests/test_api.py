@@ -175,3 +175,20 @@ def test_long_short_consumer_sentiment_maps_params(client, pool):
     assert tool == "backtest_consumer_sentiment"
     assert args["ma_months"] == 3 and isinstance(args["ma_months"], int) and args["release_lag_months"] == 1
     assert args["short_below_pct"] == 94.5 and args["exit_pct"] == 96
+
+
+def test_long_short_vix_volatility_maps_params(client, pool):
+    r = client.post(
+        "/api/strategy/long-short",
+        json={
+            "strategy": "vix_volatility",
+            "symbol": "XLK",
+            "start": "2020-01-01",
+            "end": "2025-01-01",
+            "params": {"window_days": 20.0, "short_above": 2.0, "long_below": 1.7, "exit_level": 1.8},
+        },
+    )
+    assert r.status_code == 200
+    _, tool, args = pool.calls[-1]
+    assert tool == "backtest_vix_volatility"
+    assert args["window_days"] == 20 and isinstance(args["window_days"], int) and args["exit_level"] == 1.8

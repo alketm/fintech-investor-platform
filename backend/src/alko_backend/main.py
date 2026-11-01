@@ -96,6 +96,7 @@ class LongShortRequest(BaseModel):
         "rsi_mean_reversion",
         "policy_uncertainty",
         "consumer_sentiment",
+        "vix_volatility",
     ]
     symbol: str
     start: str
@@ -114,6 +115,7 @@ LONG_SHORT_TOOLS = {
         "backtest_consumer_sentiment",
         {"ma_months", "short_below_pct", "long_above_pct", "exit_pct", "release_lag_months"},
     ),
+    "vix_volatility": ("backtest_vix_volatility", {"window_days", "short_above", "long_below", "exit_level"}),
 }
 INTEGER_PARAMS = {
     "fast",
@@ -124,6 +126,7 @@ INTEGER_PARAMS = {
     "signal_lag_days",
     "ma_months",
     "release_lag_months",
+    "window_days",
 }
 
 
