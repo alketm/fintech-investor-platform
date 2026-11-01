@@ -10,6 +10,7 @@
   --neg: #c0392b;
   --stock: #2f5bd3;
   --etf: #0e9384;
+  --series-c: #b26b00;
   --highlight: #fff6db;
   --user-bubble: #e8eefc;
   color-scheme: light;
@@ -31,6 +32,7 @@
     --neg: #f07167;
     --stock: #6b8fef;
     --etf: #2dd4bf;
+    --series-c: #f0a640;
     --highlight: #2b2614;
     --user-bubble: #1f2a44;
     color-scheme: dark;
@@ -50,45 +52,74 @@ body {
 .app {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto 1fr;
+  grid-template-columns: 200px minmax(0, 1fr);
 }
 
 .app.with-chat {
-  grid-template-columns: 1fr minmax(320px, 420px);
+  grid-template-columns: 200px minmax(0, 1fr) minmax(320px, 420px);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px 12px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+.brand {
+  font-weight: 700;
+  padding: 0 8px;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar nav a {
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.sidebar nav a:hover {
+  color: var(--text);
+  background: var(--bg);
+}
+
+.sidebar nav a.active {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .topbar {
-  grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
   padding: 12px 24px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
 
-.brand {
-  font-weight: 700;
-}
-
-nav {
-  display: flex;
-  gap: 4px;
-}
-
-nav a {
-  padding: 6px 12px;
-  border-radius: 6px;
-  color: var(--muted);
-  text-decoration: none;
-}
-
-nav a.active {
-  background: var(--bg);
-  color: var(--text);
-  font-weight: 600;
+.topbar h1 {
+  font-size: 1.1rem;
+  margin: 0;
 }
 
 .topbar-actions {
@@ -432,6 +463,11 @@ tr.highlight td {
   color: var(--muted);
 }
 
+/* Backtest results compare three series side by side: give each card room or stack them. */
+.strategy-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr));
+}
+
 .grid-2 > * {
   min-width: 0; /* let wide tables scroll inside their card instead of widening the page */
 }
@@ -499,6 +535,10 @@ tr.highlight td {
   stroke-dasharray: 4 3;
 }
 
+.chart-line.series-c {
+  stroke: var(--series-c);
+}
+
 .chart-legend {
   display: flex;
   gap: 16px;
@@ -523,12 +563,16 @@ tr.highlight td {
   background: var(--muted);
 }
 
+.swatch.series-c {
+  background: var(--series-c);
+}
+
 .chat {
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border-left: 1px solid var(--border);
-  height: calc(100vh - 57px);
+  height: 100vh;
   position: sticky;
   top: 0;
 }
@@ -630,8 +674,33 @@ tr.highlight td {
 }
 
 @media (max-width: 900px) {
+  .app,
   .app.with-chat {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 10px 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand {
+    padding: 0;
+  }
+
+  .sidebar nav {
+    flex-direction: row;
+  }
+
+  .sidebar nav a.active {
+    box-shadow: inset 0 -2px 0 var(--accent);
   }
 
   .chat {

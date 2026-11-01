@@ -57,9 +57,13 @@ export interface BacktestResult {
   total_return_pct: number
   cagr_pct: number
   annualized_volatility_pct: number
+  sharpe_ratio: number | null
   max_drawdown_pct: number
   initial_capital: number
   final_value: number
+  /** Buying and holding the benchmark (SPY) over the same days; null if it had no data. */
+  benchmark: BenchmarkStats | null
+  equity_curve: { date: string; buy_and_hold: number; benchmark?: number }[]
 }
 
 export interface EventStudyResult {
@@ -85,6 +89,10 @@ export interface StrategyStats {
   final_value: number
 }
 
+export interface BenchmarkStats extends StrategyStats {
+  symbol: string
+}
+
 export interface LongShortResult {
   symbol: string
   rule: string
@@ -94,6 +102,7 @@ export interface LongShortResult {
   trading_days: number
   strategy: StrategyStats
   buy_and_hold: StrategyStats
+  benchmark: BenchmarkStats | null
   activity: {
     position_changes: number
     pct_days_long: number
@@ -104,7 +113,7 @@ export interface LongShortResult {
     total_costs: number
     current_position: 'long' | 'short' | 'flat'
   }
-  equity_curve: { date: string; strategy: number; buy_and_hold: number }[]
+  equity_curve: { date: string; strategy: number; buy_and_hold: number; benchmark?: number }[]
   assumptions: string
   uncertainty?: {
     source: string

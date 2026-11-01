@@ -71,6 +71,20 @@ def test_run_backtest_next_day_execution_costs_and_trades():
     assert with_costs["activity"]["total_costs"] > 0
 
 
+def test_run_backtest_benchmark_fills_missing_days_and_uses_test_period():
+    closes = daily([100, 110, 99, 99, 108.9])
+    positions = daily([1, 1, 1, 1, 1])
+    # Benchmark lacks the third day and has a warm-up day before the test start.
+    bench = pd.Series(
+        [50.0, 100, 120, 90], index=[closes.index[0] - pd.Timedelta(days=3), *closes.index[[0, 1, 3]]]
+    )
+    out = st.run_backtest(closes, positions, closes.index[0], 10_000, cost_bps=0, benchmark=bench)
+    # 100 -> 120 -> (120 carried) -> 90 -> (90 carried): -10%
+    assert out["benchmark"]["total_return_pct"] == pytest.approx(-10.0, abs=0.01)
+    assert out["equity_curve"][-1]["benchmark"] == pytest.approx(9_000, abs=0.01)
+    assert st.run_backtest(closes, positions, closes.index[0], 10_000, cost_bps=0)["benchmark"] is None
+
+
 def test_run_backtest_uses_warmup_signal_on_first_day():
     closes = daily([100, 100, 100, 110, 121])
     positions = daily([0, 0, -1, -1, -1])

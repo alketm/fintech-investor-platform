@@ -43,6 +43,27 @@ def test_long_short_tools(tool, params):
     assert out["rule"] and "next day" in out["assumptions"]
 
 
+def test_long_short_reports_spy_benchmark_over_the_same_days():
+    out = server.backtest_moving_average("ABC", "2022-01-01", "2025-01-01", fast=20, slow=100)
+    # The fake history serves the same prices for every symbol, so SPY matches the symbol's buy and hold.
+    assert out["benchmark"] == {"symbol": "SPY", **out["buy_and_hold"]}
+    assert set(out["equity_curve"][-1]) == {"date", "strategy", "buy_and_hold", "benchmark"}
+    missing = server.backtest_moving_average(
+        "ABC", "2022-01-01", "2025-01-01", fast=20, slow=100, benchmark="NONE"
+    )
+    assert missing["benchmark"] is None and "benchmark" not in missing["equity_curve"][-1]
+
+
+def test_buy_and_hold_reports_benchmark_and_curve():
+    out = server.backtest_buy_and_hold("abc", "2022-01-01", "2025-01-01")
+    assert out["symbol"] == "ABC" and out["sharpe_ratio"] is not None
+    bench = out["benchmark"]
+    assert bench["symbol"] == "SPY" and bench["total_return_pct"] == out["total_return_pct"]
+    curve = out["equity_curve"]
+    assert curve[0]["buy_and_hold"] == pytest.approx(10_000, rel=0.05)
+    assert curve[-1]["buy_and_hold"] == curve[-1]["benchmark"]
+
+
 def test_signals_are_ready_on_the_first_day():
     out = server.backtest_moving_average("ABC", "2022-01-03", "2023-01-01", fast=50, slow=200)
     assert out["activity"]["pct_days_flat"] == 0  # the warm-up filled the 200-day average

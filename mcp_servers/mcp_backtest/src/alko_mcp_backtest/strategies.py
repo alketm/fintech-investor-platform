@@ -7,6 +7,8 @@ signal never trades on the return that produced it. `closes` include warm-up his
 import numpy as np
 import pandas as pd
 
+from alko_mcp_backtest.analytics import align_benchmark
+
 TRADING_DAYS = 252
 
 
@@ -128,8 +130,15 @@ def _trades(held: pd.Series, strategy_returns: pd.Series) -> list[dict]:
 
 
 def run_backtest(
-    closes: pd.Series, positions: pd.Series, start: pd.Timestamp, initial_capital: float, cost_bps: float
+    closes: pd.Series,
+    positions: pd.Series,
+    start: pd.Timestamp,
+    initial_capital: float,
+    cost_bps: float,
+    benchmark: pd.Series | None = None,
 ) -> dict:
+    """Simulate `positions` on `closes` from `start`. With `benchmark` closes, also report buying and holding
+    the benchmark over the same trading days (stats under "benchmark", a "benchmark" column in the curve)."""
     closes, positions = closes.dropna(), positions.reindex(closes.index).fillna(0.0)
     in_range = closes.index >= start
     if in_range.sum() < 3:
@@ -147,12 +156,13 @@ def run_backtest(
     prior_equity = equity.shift(1).fillna(initial_capital)
     trades = _trades(held, strategy)
     closed = [t for t in trades if not t["open"]]
-    curve = (
-        pd.DataFrame({"strategy": equity, "buy_and_hold": initial_capital * (1 + returns).cumprod()})
-        .resample("W-FRI")
-        .last()
-        .dropna()
-    )
+    columns = {"strategy": equity, "buy_and_hold": initial_capital * (1 + returns).cumprod()}
+    benchmark_returns = None
+    if benchmark is not None:
+        aligned = align_benchmark(benchmark, c.index)
+        benchmark_returns = aligned.pct_change().iloc[1:].fillna(0.0)
+        columns["benchmark"] = initial_capital * (1 + benchmark_returns).cumprod()
+    curve = pd.DataFrame(columns).resample("W-FRI").last().dropna()
 
     return {
         "start": str(c.index[0].date()),
@@ -160,6 +170,7 @@ def run_backtest(
         "trading_days": int(len(returns)),
         "strategy": stats(strategy, initial_capital),
         "buy_and_hold": stats(returns, initial_capital),
+        "benchmark": stats(benchmark_returns, initial_capital) if benchmark_returns is not None else None,
         "activity": {
             "position_changes": int((turnover > 0).sum()),
             "pct_days_long": round(float((held > 0).mean()) * 100, 1),
@@ -174,11 +185,7 @@ def run_backtest(
         },
         "recent_trades": trades[-10:],
         "equity_curve": [
-            {
-                "date": str(ts.date()),
-                "strategy": round(float(r.strategy), 2),
-                "buy_and_hold": round(float(r.buy_and_hold), 2),
-            }
+            {"date": str(ts.date()), **{k: round(float(v), 2) for k, v in r.items()}}
             for ts, r in curve.iterrows()
         ],
         "assumptions": "Signals at a close trade from the next day; costs charged per unit of position change; "

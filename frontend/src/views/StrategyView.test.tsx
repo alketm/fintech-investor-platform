@@ -12,7 +12,7 @@ const stats = {
 }
 
 const longShort = {
-  symbol: 'SPY',
+  symbol: 'XLK',
   rule: 'Long when the 20-day average is above the 100-day average, short when below.',
   parameters: { fast: 20, slow: 100, cost_bps: 5 },
   start: '2020-01-02',
@@ -20,6 +20,7 @@ const longShort = {
   trading_days: 1257,
   strategy: stats,
   buy_and_hold: { ...stats, total_return_pct: 80, final_value: 18000 },
+  benchmark: { ...stats, symbol: 'SPY', total_return_pct: 90, final_value: 19000 },
   activity: {
     position_changes: 12,
     pct_days_long: 70,
@@ -31,8 +32,8 @@ const longShort = {
     current_position: 'long',
   },
   equity_curve: [
-    { date: '2020-01-03', strategy: 10000, buy_and_hold: 10000 },
-    { date: '2024-12-27', strategy: 12500, buy_and_hold: 18000 },
+    { date: '2020-01-03', strategy: 10000, buy_and_hold: 10000, benchmark: 10000 },
+    { date: '2024-12-27', strategy: 12500, buy_and_hold: 18000, benchmark: 19000 },
   ],
   assumptions: 'Signals at a close trade from the next day.',
 }
@@ -68,7 +69,11 @@ describe('StrategyView', () => {
 
     expect(await screen.findByText(longShort.rule)).toBeInTheDocument()
     expect(screen.getByText('+80.00%')).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: 'Strategy vs Buy and hold' })).toBeInTheDocument()
+    expect(screen.getByText('+90.00%')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'SPY buy & hold' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('img', { name: 'Long-short strategy vs XLK buy and hold vs SPY buy and hold' }),
+    ).toBeInTheDocument()
     const [url, init] = fetchMock.mock.calls.find(([u]) => u === '/api/strategy/long-short')!
     expect(url).toBe('/api/strategy/long-short')
     expect(JSON.parse(init!.body as string)).toMatchObject({
@@ -77,6 +82,29 @@ describe('StrategyView', () => {
       cost_bps: 5,
       params: { fast: 20, slow: 100 },
     })
+  })
+
+  it('compares buy and hold with SPY in a table and chart', async () => {
+    const curve = [
+      { date: '2020-01-03', buy_and_hold: 10000, benchmark: 10000 },
+      { date: '2024-12-27', buy_and_hold: 26000, benchmark: 19000 },
+    ]
+    stubFetch({
+      ...stats,
+      symbol: 'XLK',
+      start: '2020-01-02',
+      end: '2024-12-31',
+      trading_days: 1258,
+      initial_capital: 10000,
+      total_return_pct: 160,
+      benchmark: { ...stats, symbol: 'SPY', total_return_pct: 90 },
+      equity_curve: curve,
+    })
+    render(<StrategyView />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run backtest' }))
+    expect(await screen.findByRole('img', { name: 'XLK buy and hold vs SPY buy and hold' })).toBeInTheDocument()
+    expect(screen.getByText('+160.00%')).toBeInTheDocument()
+    expect(screen.getByText('+90.00%')).toBeInTheDocument()
   })
 
   it('offers holdings and sector ETFs as grouped symbols, without duplicates', async () => {

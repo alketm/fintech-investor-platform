@@ -23,7 +23,7 @@ export function StrategyView() {
     api.strategySymbols().then(setSymbols, () => setSymbols(null))
   }, [])
   return (
-    <section className="grid-2">
+    <section className="grid-2 strategy-grid">
       <Backtest symbols={symbols} />
       <EventStudy symbols={symbols} />
     </section>
@@ -263,14 +263,16 @@ function Backtest({ symbols }: { symbols: SymbolGroup[] | null }) {
 }
 
 function BuyAndHoldResult({ result }: { result: BacktestResult }) {
+  const columns: Column[] = [{ label: `${result.symbol} buy & hold`, stats: result }]
+  const lines: Line[] = [{ label: `${result.symbol} buy and hold`, key: 'buy_and_hold', className: 'series-a' }]
+  if (result.benchmark && result.benchmark.symbol !== result.symbol) {
+    columns.push({ label: `${result.benchmark.symbol} buy & hold`, stats: result.benchmark })
+    lines.push({ label: `${result.benchmark.symbol} buy and hold`, key: 'benchmark', className: 'series-c' })
+  }
   return (
-    <div className="stats compact">
-      <Stat label="Total return" value={pct(result.total_return_pct)} className={tone(result.total_return_pct)} />
-      <Stat label="CAGR" value={pct(result.cagr_pct)} className={tone(result.cagr_pct)} />
-      <Stat label="Volatility (ann.)" value={`${result.annualized_volatility_pct.toFixed(2)}%`} />
-      <Stat label="Max drawdown" value={pct(result.max_drawdown_pct)} className="neg" />
-      <Stat label="Final value" value={money(result.final_value)} />
-      <Stat label="Period" value={`${result.start} → ${result.end}`} />
+    <div className="result">
+      <ComparisonTable period={`${result.start} → ${result.end}`} columns={columns} />
+      <EquityChart curve={result.equity_curve} lines={lines} />
     </div>
   )
 }
@@ -284,40 +286,79 @@ const STAT_ROWS: { key: keyof StrategyStats; label: string; show: (v: number | n
   { key: 'final_value', label: 'Final value', show: (v) => (v == null ? '—' : money(v)) },
 ]
 
+interface Column {
+  label: string
+  stats: Partial<Record<keyof StrategyStats, number | null>>
+}
+
+/** Metrics side by side, one column per strategy or holding. */
+function ComparisonTable({ period, columns }: { period: string; columns: Column[] }) {
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>{period}</th>
+          {columns.map((c) => (
+            <th key={c.label} className="num">
+              {c.label}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {STAT_ROWS.map((row) => (
+          <tr key={row.key}>
+            <td>{row.label}</td>
+            {columns.map((c) => {
+              const v = c.stats[row.key] ?? null
+              return (
+                <td key={c.label} className={`num ${row.colored ? tone(v) : ''}`}>
+                  {row.show(v)}
+                </td>
+              )
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+interface Line {
+  label: string
+  key: 'strategy' | 'buy_and_hold' | 'benchmark'
+  className: string
+}
+
+function EquityChart({ curve, lines }: { curve: ({ date: string } & Partial<Record<Line['key'], number>>)[]; lines: Line[] }) {
+  return (
+    <LineChart
+      dates={curve.map((p) => p.date)}
+      series={lines.map((l) => ({ label: l.label, values: curve.map((p) => p[l.key] ?? NaN), className: l.className }))}
+      format={(n) => money(n).replace(/\.\d+$/, '')}
+    />
+  )
+}
+
 function LongShortView({ result }: { result: LongShortResult }) {
   const a = result.activity
+  const columns: Column[] = [
+    { label: 'Long-short', stats: result.strategy },
+    { label: `${result.symbol} buy & hold`, stats: result.buy_and_hold },
+  ]
+  const lines: Line[] = [
+    { label: 'Long-short strategy', key: 'strategy', className: 'series-a' },
+    { label: `${result.symbol} buy and hold`, key: 'buy_and_hold', className: 'series-b' },
+  ]
+  if (result.benchmark && result.benchmark.symbol !== result.symbol) {
+    columns.push({ label: `${result.benchmark.symbol} buy & hold`, stats: result.benchmark })
+    lines.push({ label: `${result.benchmark.symbol} buy and hold`, key: 'benchmark', className: 'series-c' })
+  }
   return (
     <div className="result">
       <p className="muted rule">{result.rule}</p>
-      <table>
-        <thead>
-          <tr>
-            <th>{result.start} → {result.end}</th>
-            <th className="num">Strategy</th>
-            <th className="num">Buy and hold</th>
-          </tr>
-        </thead>
-        <tbody>
-          {STAT_ROWS.map((row) => (
-            <tr key={row.key}>
-              <td>{row.label}</td>
-              {[result.strategy, result.buy_and_hold].map((s, i) => (
-                <td key={i} className={`num ${row.colored ? tone(s[row.key]) : ''}`}>
-                  {row.show(s[row.key])}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <LineChart
-        dates={result.equity_curve.map((p) => p.date)}
-        series={[
-          { label: 'Strategy', values: result.equity_curve.map((p) => p.strategy), className: 'series-a' },
-          { label: 'Buy and hold', values: result.equity_curve.map((p) => p.buy_and_hold), className: 'series-b' },
-        ]}
-        format={(n) => money(n).replace(/\.\d+$/, '')}
-      />
+      <ComparisonTable period={`${result.start} → ${result.end}`} columns={columns} />
+      <EquityChart curve={result.equity_curve} lines={lines} />
       {result.uncertainty && (
         <div className="stats compact">
           <Stat
