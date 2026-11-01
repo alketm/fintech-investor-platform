@@ -165,9 +165,9 @@ const STRATEGIES: TileOption<BacktestKind>[] = [
   {
     id: 'consumer_sentiment',
     tag: 'Long-short · macro',
-    title: 'Consumer sentiment trend',
+    title: 'Consumer sentiment bands',
     description:
-      'Monthly: long above the 3-month average, short below; exit when the average turns against the position. Last 10 years.',
+      'Monthly, sentiment vs its 3-month average: long above 97%, short below 95%, back to neutral across 96%. Last 10 years.',
   },
 ]
 
@@ -208,6 +208,9 @@ const PARAMS: Record<
   ],
   consumer_sentiment: [
     { key: 'ma_months', label: 'Moving average (months)', value: 3, min: 2 },
+    { key: 'long_above_pct', label: 'Go long above (% of avg)', value: 97, min: 1, step: 0.5 },
+    { key: 'short_below_pct', label: 'Go short below (% of avg)', value: 95, min: 1, step: 0.5 },
+    { key: 'exit_pct', label: 'Back to neutral at (% of avg)', value: 96, min: 1, step: 0.5 },
     { key: 'release_lag_months', label: 'Release lag (months)', value: 0, min: 0 },
   ],
 }
@@ -365,9 +368,6 @@ function EquityChart({ curve, lines }: { curve: ({ date: string } & Partial<Reco
   )
 }
 
-/** Direction of a change: ▲ rising, ▼ falling, ▶ unchanged or unknown. */
-const trendArrow = (change: number | null) => (change == null || change === 0 ? '▶' : change > 0 ? '▲' : '▼')
-
 function LongShortView({ result }: { result: LongShortResult }) {
   const a = result.activity
   const columns: Column[] = [
@@ -406,9 +406,10 @@ function LongShortView({ result }: { result: LongShortResult }) {
             label={`UMich sentiment, ${result.sentiment.reading_month ?? '—'}`}
             value={result.sentiment.value_at_end?.toFixed(1) ?? '—'}
           />
+          <Stat label={`${result.parameters.ma_months}-month average`} value={result.sentiment.moving_average_at_end?.toFixed(1) ?? '—'} />
           <Stat
-            label={`${result.parameters.ma_months}-month average`}
-            value={`${result.sentiment.moving_average_at_end?.toFixed(1) ?? '—'} ${trendArrow(result.sentiment.moving_average_change_at_end)}`}
+            label="Sentiment / average"
+            value={result.sentiment.ratio_pct_at_end == null ? '—' : `${result.sentiment.ratio_pct_at_end.toFixed(1)}%`}
           />
           <Stat label="Signal at end" value={result.sentiment.signal_at_end ?? '—'} />
         </div>

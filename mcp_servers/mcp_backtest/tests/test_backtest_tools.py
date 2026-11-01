@@ -125,22 +125,47 @@ def test_policy_uncertainty_needs_fred_key(monkeypatch):
         server.backtest_policy_uncertainty("SPY", "2022-01-01", "2025-01-01")
 
 
+SENTIMENT = pd.Series(
+    80 + 25 * np.sin(np.arange(576) / 3), index=pd.date_range("1978-01-01", periods=576, freq="MS")
+)
+
+
 def test_consumer_sentiment_tool(monkeypatch):
-    months = pd.date_range("2015-01-01", "2025-12-01", freq="MS")
-    sentiment = pd.Series(80 + 10 * np.sin(np.arange(len(months)) / 3), index=months)
-    monkeypatch.setattr(server, "_consumer_sentiment", lambda start: sentiment[sentiment.index >= start])
+    monkeypatch.setattr(server, "_consumer_sentiment", lambda start: SENTIMENT[SENTIMENT.index >= start])
     out = server.backtest_consumer_sentiment("SPY", "2020-01-01", "2025-01-01")
-    assert out["parameters"] == {"ma_months": 3, "release_lag_months": 0, "cost_bps": 5.0}
+    assert out["parameters"] == {
+        "ma_months": 3,
+        "short_below_pct": 95.0,
+        "long_above_pct": 97.0,
+        "exit_pct": 96.0,
+        "release_lag_months": 0,
+        "cost_bps": 5.0,
+    }
     s = out["sentiment"]
     assert s["reading_month"] == "2024-12" and "UMCSENT" in s["source"]  # as of the test end, not today
-    above, change = s["value_at_end"] > s["moving_average_at_end"], s["moving_average_change_at_end"]
-    expected = "long" if above and change >= 0 else "short" if not above and change <= 0 else "flat"
-    assert s["signal_at_end"] == expected == out["activity"]["current_position"]
+    assert s["ratio_pct_at_end"] == pytest.approx(
+        s["value_at_end"] / s["moving_average_at_end"] * 100, abs=0.2
+    )
+    assert s["signal_at_end"] == out["activity"]["current_position"]
     a = out["activity"]
     assert a["pct_days_long"] > 0 and a["pct_days_short"] > 0 and a["pct_days_flat"] > 0
-    assert "turns down" in out["rule"] and "monthly" in out["rule"]
+    assert "short below 95%" in out["rule"] and "neutral below 96%" in out["rule"]
     with pytest.raises(ToolError, match="ma_months >= 2"):
         server.backtest_consumer_sentiment("SPY", "2020-01-01", "2025-01-01", ma_months=1)
+    with pytest.raises(ToolError, match="short_below_pct <= exit_pct"):
+        server.backtest_consumer_sentiment("SPY", "2020-01-01", "2025-01-01", exit_pct=98)
+
+
+def test_consumer_sentiment_starts_its_state_before_the_test(monkeypatch):
+    """The band rule depends on its past state, so it runs from the earliest reading, not from the test start."""
+    requested = []
+    monkeypatch.setattr(
+        server,
+        "_consumer_sentiment",
+        lambda start: requested.append(start) or SENTIMENT[SENTIMENT.index >= start],
+    )
+    server.backtest_consumer_sentiment("SPY", "2022-01-01", "2025-01-01")
+    assert requested == ["1978-01-01"]
 
 
 def test_consumer_sentiment_needs_fred_key(monkeypatch):

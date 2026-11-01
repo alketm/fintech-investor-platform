@@ -288,45 +288,60 @@ def backtest_consumer_sentiment(
     start: str,
     end: str,
     ma_months: int = 3,
+    short_below_pct: float = 95.0,
+    long_above_pct: float = 97.0,
+    exit_pct: float = 96.0,
     release_lag_months: int = 0,
     initial_capital: float = 10_000.0,
     cost_bps: float = 5.0,
     benchmark: str = "SPY",
 ) -> dict:
-    """Long-short timing with the University of Michigan consumer sentiment index (FRED UMCSENT, monthly). At each
-    month end: long the symbol when sentiment is above its `ma_months` moving average and that average isn't
-    falling, short when below and the average isn't rising, flat otherwise; held for the next month. So a long
-    exits when the average turns down and a short exits when it turns up. A month's reading is treated as known
-    at that month's end (the final release comes late in the month); raise `release_lag_months` to wait longer.
-    Same outputs as the other long-short backtests plus the sentiment reading behind the last signal."""
+    """Long-short timing with the University of Michigan consumer sentiment index (FRED UMCSENT, monthly), using
+    sentiment as a % of its `ma_months` moving average. At each month end, from neutral: short below
+    `short_below_pct`, long above `long_above_pct`, else stay neutral; a long goes neutral once below `exit_pct`
+    and a short goes neutral once above `exit_pct`. Positions are held for the next month. A month's reading is
+    treated as known at that month's end (the final release comes late in the month); raise
+    `release_lag_months` to wait longer. Same outputs as the other long-short backtests plus the sentiment
+    reading behind the last signal."""
     if ma_months < 2 or release_lag_months < 0:
         raise ToolError("Need ma_months >= 2 and release_lag_months >= 0")
+    if not 0 < short_below_pct <= exit_pct <= long_above_pct:
+        raise ToolError("Need 0 < short_below_pct <= exit_pct <= long_above_pct")
     try:
-        warm = pd.Timestamp(start) - pd.DateOffset(months=ma_months + release_lag_months + 3)
+        pd.Timestamp(start)
     except ValueError as e:
         raise ToolError(f"Dates must be YYYY-MM-DD: {e}") from e
-    sentiment = _consumer_sentiment(warm.strftime("%Y-%m-%d"))
+    # From the earliest reading: the band rule depends on its past state, so start it well before the test.
+    sentiment = _consumer_sentiment("1978-01-01")
     if sentiment.empty:
         raise ToolError("No University of Michigan consumer sentiment data returned")
+    bands = (short_below_pct, long_above_pct, exit_pct)
 
     lag = (
-        f", using the reading from {release_lag_months} month{'s' if release_lag_months != 1 else ''} earlier"
+        f" Uses the reading from {release_lag_months} month{'s' if release_lag_months != 1 else ''} earlier."
     )
     result = _long_short(
         symbol,
         start,
         end,
         30,  # enough history to hold the previous month-end's signal on the first day
-        lambda c: strategies.sentiment_trend_positions(c, sentiment, ma_months, release_lag_months),
+        lambda c: strategies.sentiment_trend_positions(c, sentiment, ma_months, release_lag_months, *bands),
         initial_capital,
         cost_bps,
-        f"At each month end, long when University of Michigan consumer sentiment is above its {ma_months}-month "
-        f"average, short when below{lag if release_lag_months else ''}; a long exits when the average turns down "
-        "and a short when it turns up, staying flat until both agree again; rebalanced monthly.",
-        {"ma_months": ma_months, "release_lag_months": release_lag_months},
+        f"Monthly, with University of Michigan consumer sentiment as a % of its {ma_months}-month average: from "
+        f"neutral, short below {short_below_pct:g}%, long above {long_above_pct:g}%, else stay neutral; a long "
+        f"goes neutral below {exit_pct:g}%, a short goes neutral above {exit_pct:g}%."
+        f"{lag if release_lag_months else ''}",
+        {
+            "ma_months": ma_months,
+            "short_below_pct": short_below_pct,
+            "long_above_pct": long_above_pct,
+            "exit_pct": exit_pct,
+            "release_lag_months": release_lag_months,
+        },
         benchmark,
     )
-    trend = strategies.sentiment_trend(sentiment, ma_months, release_lag_months).dropna()
+    trend = strategies.sentiment_trend(sentiment, ma_months, release_lag_months, *bands).dropna()
     known = trend[trend.index <= pd.Timestamp(result["end"]).to_period("M")]  # as of the test end, not today
     last = known.iloc[-1] if len(known) else None
     result["sentiment"] = {
@@ -334,9 +349,7 @@ def backtest_consumer_sentiment(
         "reading_month": str(known.index[-1] - release_lag_months) if last is not None else None,
         "value_at_end": round(float(last["value"]), 1) if last is not None else None,
         "moving_average_at_end": round(float(last["moving_average"]), 1) if last is not None else None,
-        "moving_average_change_at_end": round(float(last["moving_average_change"]), 2)
-        if last is not None and pd.notna(last["moving_average_change"])
-        else None,
+        "ratio_pct_at_end": round(float(last["ratio_pct"]), 1) if last is not None else None,
         "signal_at_end": {1.0: "long", -1.0: "short"}.get(float(last["signal"]), "flat")
         if last is not None
         else None,

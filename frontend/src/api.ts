@@ -134,7 +134,7 @@ export interface LongShortResult {
     reading_month: string | null
     value_at_end: number | null
     moving_average_at_end: number | null
-    moving_average_change_at_end: number | null
+    ratio_pct_at_end: number | null
     signal_at_end: 'long' | 'short' | 'flat' | null
   }
 }

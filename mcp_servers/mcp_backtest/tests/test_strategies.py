@@ -127,20 +127,21 @@ def test_uncertainty_index_is_aligned_to_trading_days():
 MONTHS = pd.date_range("2024-01-01", periods=7, freq="MS")
 
 
-@pytest.mark.parametrize(
-    ("values", "signals"),
-    [
-        # Mar/Apr above a rising average: long. May/Jun below a falling one: short.
-        # Jul: 66 is above the average (64), but the average is still falling, so no long.
-        ([70.0, 70, 76, 74, 64, 62, 66], [1, 1, -1, -1, 0]),
-        # May: 40 is below the average (53.3), but the average rose (46.7 -> 53.3), so the long exits to flat.
-        ([20.0, 20, 60, 60, 40], [1, 1, 0]),
-    ],
-)
-def test_sentiment_trend_exits_when_the_average_turns(values, signals):
-    trend = st.sentiment_trend(pd.Series(values, index=MONTHS[: len(values)]), 3, 0).dropna(subset=["signal"])
-    assert list(trend.index.astype(str))[0] == "2024-03"  # first full 3-month average
-    assert trend["signal"].tolist() == signals
+def test_sentiment_band_signals_follow_the_state_machine():
+    ratios = pd.Series([np.nan, 100, 96.5, 95.5, 94, 95.5, 96.5, 96, 98, 93])
+    # nan: no average yet. 100 > 97: long. 96.5: long holds above 96. 95.5 < 96: neutral.
+    # 94 < 95: short. 95.5: short holds below 96. 96.5 > 96: neutral. 96: between 95 and 97, neutral.
+    # 98 > 97: long. 93 < 96: neutral first, not straight to short.
+    signals = st.sentiment_band_signals(ratios, 95, 97, 96)
+    assert np.isnan(signals.iloc[0])
+    assert signals.iloc[1:].tolist() == [1, 1, 0, -1, -1, 0, 0, 1, 0]
+
+
+def test_sentiment_trend_reports_ratio_to_average():
+    trend = st.sentiment_trend(pd.Series([100.0, 100, 85, 70], index=MONTHS[:4]), 3, 0).dropna()
+    # Mar: 85 / 95 = 89.5% -> short. Apr: 70 / 85 = 82.4% -> short holds.
+    assert trend["ratio_pct"].round(1).tolist() == [89.5, 82.4]
+    assert trend["signal"].tolist() == [-1, -1]
 
 
 def test_sentiment_trend_positions_rebalance_at_month_end():
@@ -150,7 +151,7 @@ def test_sentiment_trend_positions_rebalance_at_month_end():
     # No decision until March's reading is final at its last trading day.
     assert (pos[:"2024-03-28"] == 0).all()
     assert pos["2024-03-29"] == 1 and (pos["2024-04-01":"2024-04-30"] == 1).all()
-    assert pos["2024-05-31"] == 0  # the average turned up while sentiment fell below it
+    assert pos["2024-05-31"] == 0  # May: 40 is 75% of the average (53.3), below 96%: the long goes neutral
 
     lagged = st.sentiment_trend_positions(closes, sentiment, ma_months=3, lag_months=1)
     assert lagged["2024-03-29"] == 0 and lagged["2024-04-30"] == 1 and lagged["2024-05-31"] == 1

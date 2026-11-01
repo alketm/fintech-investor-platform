@@ -80,38 +80,68 @@ def policy_uncertainty_positions(
     return pd.Series(np.select([z > threshold, z < -threshold], [-1.0, 1.0], 0.0), index=closes.index)
 
 
-def sentiment_trend(sentiment: pd.Series, ma_months: int, lag_months: int) -> pd.DataFrame:
-    """Monthly sentiment, its `ma_months` moving average, the average's change and the signal, indexed by the month
-    the signal can first be used: a reading for month M is final by the end of M, so with `lag_months` = 0 it
-    sets the position from M's last trading day.
+def sentiment_band_signals(
+    ratio_pct: pd.Series, short_below_pct: float, long_above_pct: float, exit_pct: float
+) -> pd.Series:
+    """Positions from sentiment as a % of its moving average, one step per month, starting neutral.
 
-    Signal: +1 when sentiment is above the average and the average isn't falling, -1 when below and the average
-    isn't rising, else 0. So a long exits when the average turns down and a short when it turns up, and neither
-    is entered against the average's direction. The first average has no change yet and counts as not turning.
+    From neutral: short below `short_below_pct`, long above `long_above_pct`, else stay neutral.
+    From long: neutral once below `exit_pct`. From short: neutral once above `exit_pct`.
+    One transition per month, so leaving a long or short always passes through neutral.
+    Months without a ratio (no full average yet) give NaN and keep the state neutral.
     """
+    state, out = 0.0, []
+    for r in ratio_pct:
+        if np.isnan(r):
+            out.append(np.nan)
+            continue
+        if state == 0:
+            state = -1.0 if r < short_below_pct else 1.0 if r > long_above_pct else 0.0
+        elif state == 1 and r < exit_pct:
+            state = 0.0
+        elif state == -1 and r > exit_pct:
+            state = 0.0
+        out.append(state)
+    return pd.Series(out, index=ratio_pct.index)
+
+
+def sentiment_trend(
+    sentiment: pd.Series,
+    ma_months: int,
+    lag_months: int,
+    short_below_pct: float = 95.0,
+    long_above_pct: float = 97.0,
+    exit_pct: float = 96.0,
+) -> pd.DataFrame:
+    """Monthly sentiment, its `ma_months` moving average, sentiment as a % of that average and the
+    `sentiment_band_signals` signal, indexed by the month the signal can first be used: a reading for month M is
+    final by the end of M, so with `lag_months` = 0 it sets the position from M's last trading day."""
     s = sentiment.dropna().sort_index()
     s.index = s.index.to_period("M")
     s = s[~s.index.duplicated(keep="last")].asfreq("M")
     ma = s.rolling(ma_months).mean()
-    change = ma.diff()
-    signal = pd.Series(
-        np.select([(s > ma) & ~(change < 0), (s < ma) & ~(change > 0)], [1.0, -1.0], 0.0), index=s.index
-    ).where(ma.notna())
-    frame = pd.DataFrame(
-        {"value": s, "moving_average": ma, "moving_average_change": change, "signal": signal}
-    )
+    ratio = s / ma * 100
+    signal = sentiment_band_signals(ratio, short_below_pct, long_above_pct, exit_pct)
+    frame = pd.DataFrame({"value": s, "moving_average": ma, "ratio_pct": ratio, "signal": signal})
     frame.index = frame.index + lag_months
     return frame
 
 
 def sentiment_trend_positions(
-    closes: pd.Series, sentiment: pd.Series, ma_months: int, lag_months: int
+    closes: pd.Series,
+    sentiment: pd.Series,
+    ma_months: int,
+    lag_months: int,
+    short_below_pct: float = 95.0,
+    long_above_pct: float = 97.0,
+    exit_pct: float = 96.0,
 ) -> pd.Series:
-    """`sentiment_trend` signal (long above a non-falling average, short below a non-rising one, else flat),
-    re-decided on each month's last day."""
+    """`sentiment_trend` signal, re-decided on each month's last day."""
     month = closes.index.to_period("M")
     last_day_of_month = closes.index.to_series().groupby(month).transform("max") == closes.index
-    signal = sentiment_trend(sentiment, ma_months, lag_months)["signal"]
+    signal = sentiment_trend(sentiment, ma_months, lag_months, short_below_pct, long_above_pct, exit_pct)[
+        "signal"
+    ]
     decided = pd.Series(signal.reindex(month).values, index=closes.index).where(last_day_of_month)
     return decided.ffill().fillna(0.0)
 

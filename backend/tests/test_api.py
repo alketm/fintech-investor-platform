@@ -167,10 +167,11 @@ def test_long_short_consumer_sentiment_maps_params(client, pool):
             "symbol": "XLY",
             "start": "2015-01-01",
             "end": "2025-01-01",
-            "params": {"ma_months": 3.0, "release_lag_months": 1},
+            "params": {"ma_months": 3.0, "release_lag_months": 1, "short_below_pct": 94.5, "exit_pct": 96},
         },
     )
     assert r.status_code == 200
     _, tool, args = pool.calls[-1]
     assert tool == "backtest_consumer_sentiment"
     assert args["ma_months"] == 3 and isinstance(args["ma_months"], int) and args["release_lag_months"] == 1
+    assert args["short_below_pct"] == 94.5 and args["exit_pct"] == 96
