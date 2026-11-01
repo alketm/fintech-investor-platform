@@ -26,6 +26,11 @@ export interface Portfolio extends PortfolioSummary {
   total_gain_pct: number | null
 }
 
+export interface SymbolGroup {
+  label: string
+  symbols: { symbol: string; name: string }[]
+}
+
 export interface Weight {
   symbol: string
   type: string
@@ -211,6 +216,7 @@ export const api = {
   portfolio: (id: string) => request<Portfolio>(`/api/portfolios/${id}`),
   analysis: (id: string) => request<Analysis>(`/api/portfolios/${id}/analysis`),
   agents: () => request<AgentInfo[]>('/api/agents'),
+  strategySymbols: () => request<SymbolGroup[]>('/api/strategy/symbols'),
   backtest: (body: { symbol: string; start: string; end: string; initial_capital: number }) =>
     post<BacktestResult>('/api/strategy/backtest', body),
   eventStudy: (body: { symbol: string; event_date: string; benchmark: string; window: number }) =>

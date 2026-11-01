@@ -40,6 +40,15 @@ def test_portfolios(client):
     assert client.get("/api/portfolios/nope").status_code == 404
 
 
+def test_strategy_symbols_lists_holdings_then_sector_etfs(client):
+    groups = client.get("/api/strategy/symbols").json()
+    assert [g["label"] for g in groups][-1] == "Sector ETFs"
+    holdings = {s["symbol"] for g in groups[:-1] for s in g["symbols"]}
+    assert {"AAPL", "NVDA", "VTI", "SCHD", "JNJ"} <= holdings and len(holdings) == 10
+    sectors = [s["symbol"] for s in groups[-1]["symbols"]]
+    assert sectors == ["XLY", "XLE", "XLF", "XLV", "XLI", "XLB", "XLRE", "XLK"]
+
+
 def test_analysis(client):
     analysis = client.get("/api/portfolios/brokerage/analysis").json()
     assert {t["type"] for t in analysis["by_type"]} == {"stock", "etf"}

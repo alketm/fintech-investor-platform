@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from alko_backend.agents import AGENTS, AgentRunner
-from alko_backend.config import load_env_file
+from alko_backend.config import SECTOR_ETFS, load_env_file
 from alko_backend.mcp_pool import McpPool, ToolError
 from alko_backend.portfolios import analyze, describe_for_agent, load_portfolios, value_portfolio
 
@@ -128,6 +128,22 @@ async def _tool(request: Request, server: str, tool: str, args: dict) -> dict:
         return await request.app.state.pool.call_json(server, tool, args)
     except ToolError as e:
         raise HTTPException(422, str(e)) from e
+
+
+@app.get("/api/strategy/symbols")
+async def strategy_symbols(request: Request):
+    """Symbols the strategy page offers: each portfolio's holdings, then the sector ETFs."""
+    groups = [
+        {
+            "label": f"{p['name']} holdings",
+            "symbols": [{"symbol": h["symbol"], "name": h["type"].upper()} for h in p["holdings"]],
+        }
+        for p in request.app.state.portfolios.values()
+    ]
+    groups.append(
+        {"label": "Sector ETFs", "symbols": [{"symbol": s, "name": n} for s, n in SECTOR_ETFS.items()]}
+    )
+    return groups
 
 
 @app.post("/api/strategy/backtest")

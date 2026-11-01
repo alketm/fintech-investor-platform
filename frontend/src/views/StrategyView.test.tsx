@@ -37,14 +37,30 @@ const longShort = {
   assumptions: 'Signals at a close trade from the next day.',
 }
 
+const symbols = [
+  { label: 'Brokerage holdings', symbols: [{ symbol: 'NVDA', name: 'STOCK' }, { symbol: 'VTI', name: 'ETF' }] },
+  { label: 'IRA holdings', symbols: [{ symbol: 'VTI', name: 'ETF' }, { symbol: 'SCHD', name: 'ETF' }] },
+  { label: 'Sector ETFs', symbols: [{ symbol: 'XLK', name: 'Technology' }, { symbol: 'XLE', name: 'Energy' }] },
+]
+
+/** Serves the symbol list, and `result` for every other request. */
+function stubFetch(result: unknown = longShort) {
+  const fetchMock = vi.fn(async (url: string, _init?: RequestInit) =>
+    new Response(JSON.stringify(url === '/api/strategy/symbols' ? symbols : result)),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
 afterEach(() => vi.unstubAllGlobals())
 
 describe('StrategyView', () => {
   it('runs a long-short backtest with the chosen strategy and parameters', async () => {
-    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify(longShort)))
-    vi.stubGlobal('fetch', fetchMock)
+    const fetchMock = stubFetch()
     render(<StrategyView />)
 
+    const [backtestSymbol] = await screen.findAllByRole('combobox', { name: 'Symbol' })
+    fireEvent.change(backtestSymbol, { target: { value: 'XLK' } })
     fireEvent.click(screen.getByRole('radio', { name: /Moving-average crossover/ }))
     fireEvent.change(screen.getByLabelText('Fast average (days)'), { target: { value: '20' } })
     fireEvent.change(screen.getByLabelText('Slow average (days)'), { target: { value: '100' } })
@@ -53,17 +69,29 @@ describe('StrategyView', () => {
     expect(await screen.findByText(longShort.rule)).toBeInTheDocument()
     expect(screen.getByText('+80.00%')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'Strategy vs Buy and hold' })).toBeInTheDocument()
-    const [url, init] = fetchMock.mock.calls[0]
+    const [url, init] = fetchMock.mock.calls.find(([u]) => u === '/api/strategy/long-short')!
     expect(url).toBe('/api/strategy/long-short')
     expect(JSON.parse(init!.body as string)).toMatchObject({
       strategy: 'moving_average',
-      symbol: 'SPY',
+      symbol: 'XLK',
       cost_bps: 5,
       params: { fast: 20, slow: 100 },
     })
   })
 
+  it('offers holdings and sector ETFs as grouped symbols, without duplicates', async () => {
+    stubFetch()
+    render(<StrategyView />)
+    const [backtestSymbol, eventSymbol] = await screen.findAllByRole('combobox', { name: 'Symbol' })
+    expect(backtestSymbol).toHaveValue('VTI')
+    expect(eventSymbol).toHaveValue('NVDA')
+    const options = within(backtestSymbol).getAllByRole('option').map((o) => o.getAttribute('value'))
+    expect(options).toEqual(['NVDA', 'VTI', 'SCHD', 'XLK', 'XLE'])
+    expect(backtestSymbol.querySelectorAll('optgroup')[2]).toHaveAttribute('label', 'Sector ETFs')
+  })
+
   it('shows strategies and event types as tiles with one selected', () => {
+    stubFetch()
     render(<StrategyView />)
     const strategy = screen.getByRole('group', { name: 'Strategy' })
     expect(within(strategy).getAllByRole('radio')).toHaveLength(5)
@@ -72,6 +100,7 @@ describe('StrategyView', () => {
   })
 
   it('shows inputs that match the chosen event study', () => {
+    stubFetch()
     render(<StrategyView />)
     expect(screen.getByLabelText('Event date')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('radio', { name: /Large daily moves/ }))

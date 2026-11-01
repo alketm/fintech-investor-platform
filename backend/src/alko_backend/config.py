@@ -10,6 +10,18 @@ ENV_FILE = ROOT / ".env"  # git-ignored; holds secrets such as FRED_API_KEY
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 PORTFOLIOS_FILE = DATA_DIR / "portfolios.json"
 
+# SPDR sector ETFs offered on the strategy page next to the portfolio holdings.
+SECTOR_ETFS = {
+    "XLY": "Consumer Discretionary",
+    "XLE": "Energy",
+    "XLF": "Financials",
+    "XLV": "Health Care",
+    "XLI": "Industrials",
+    "XLB": "Materials",
+    "XLRE": "Real Estate",
+    "XLK": "Technology",
+}
+
 # MCP server name -> Python module run over stdio.
 MCP_SERVERS = {
     "mcp_etf": "alko_mcp_etf.server",

@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useState } from 'react'
+import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import {
   api,
   type BacktestResult,
@@ -11,17 +11,47 @@ import {
   type MoveGroup,
   type PathPoint,
   type StrategyStats,
+  type SymbolGroup,
 } from '../api'
 import { LineChart } from '../components/LineChart'
 import { money, pct, tone } from '../format'
 import { Stat } from './PortfolioView'
 
 export function StrategyView() {
+  const [symbols, setSymbols] = useState<SymbolGroup[] | null>(null)
+  useEffect(() => {
+    api.strategySymbols().then(setSymbols, () => setSymbols(null))
+  }, [])
   return (
     <section className="grid-2">
-      <Backtest />
-      <EventStudy />
+      <Backtest symbols={symbols} />
+      <EventStudy symbols={symbols} />
     </section>
+  )
+}
+
+/** Holdings and sector ETFs grouped in one select; falls back to free text if the list can't load. */
+function SymbolSelect({ groups, value, onChange }: {
+  groups: SymbolGroup[] | null
+  value: string
+  onChange: (symbol: string) => void
+}) {
+  if (!groups) return <input value={value} onChange={(e) => onChange(e.target.value.toUpperCase())} required />
+  const seen = new Set<string>()
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)}>
+      {groups.map((g) => (
+        <optgroup key={g.label} label={g.label}>
+          {g.symbols
+            .filter((s) => !seen.has(s.symbol) && seen.add(s.symbol))
+            .map((s) => (
+              <option key={s.symbol} value={s.symbol}>
+                {s.symbol} · {s.name}
+              </option>
+            ))}
+        </optgroup>
+      ))}
+    </select>
   )
 }
 
@@ -161,9 +191,9 @@ const PARAMS: Record<
 
 const defaults = (kind: LongShortStrategy) => Object.fromEntries(PARAMS[kind].map((p) => [p.key, p.value]))
 
-function Backtest() {
+function Backtest({ symbols }: { symbols: SymbolGroup[] | null }) {
   const [kind, setKind] = useState<BacktestKind>('buy_and_hold')
-  const [form, setForm] = useState({ symbol: 'SPY', start: '2020-01-01', end: '2025-01-01', initial_capital: 10000, cost_bps: 5 })
+  const [form, setForm] = useState({ symbol: 'VTI', start: '2020-01-01', end: '2025-01-01', initial_capital: 10000, cost_bps: 5 })
   const [params, setParams] = useState<Record<string, number>>({})
   const hold = useRunner<BacktestResult>()
   const longShort = useRunner<LongShortResult>()
@@ -192,7 +222,7 @@ function Backtest() {
       <form className="form" onSubmit={submit}>
         <Tiles name="strategy" legend="Strategy" options={STRATEGIES} value={kind} onChange={choose} />
         <Field label="Symbol">
-          <input value={form.symbol} onChange={(e) => setForm({ ...form, symbol: e.target.value.toUpperCase() })} required />
+          <SymbolSelect groups={symbols} value={form.symbol} onChange={(symbol) => setForm({ ...form, symbol })} />
         </Field>
         <Field label="Start">
           <input type="date" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} required />
@@ -333,7 +363,7 @@ const STUDIES: TileOption<StudyKind>[] = [
   },
 ]
 
-function EventStudy() {
+function EventStudy({ symbols }: { symbols: SymbolGroup[] | null }) {
   const [kind, setKind] = useState<StudyKind>('single')
   const [symbol, setSymbol] = useState('NVDA')
   const [benchmark, setBenchmark] = useState('SPY')
@@ -368,7 +398,7 @@ function EventStudy() {
       <form className="form" onSubmit={submit}>
         <Tiles name="event-type" legend="Event type" options={STUDIES} value={kind} onChange={choose} />
         <Field label="Symbol">
-          <input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} required />
+          <SymbolSelect groups={symbols} value={symbol} onChange={setSymbol} />
         </Field>
         {kind === 'single' && (
           <Field label="Event date">
