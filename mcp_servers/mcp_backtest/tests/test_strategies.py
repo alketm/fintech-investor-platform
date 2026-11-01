@@ -122,3 +122,28 @@ def test_uncertainty_index_is_aligned_to_trading_days():
     z = st.uncertainty_zscore(closes, index, lookback_days=2, lag_days=0)
     aligned = index.reindex(closes.index.union(index.index)).ffill().reindex(closes.index)
     assert aligned.tolist() == [1.0, 1.0, 3.0, 3.0, 3.0] and len(z) == 5
+
+
+def test_sentiment_trend_positions_rebalance_at_month_end():
+    # Monthly readings dated the 1st: above the 3-month average in March, below in April.
+    sentiment = pd.Series(
+        [70.0, 70, 76, 64, 64],
+        index=pd.to_datetime(["2024-01-01", "2024-02-01", "2024-03-01", "2024-04-01", "2024-05-01"]),
+    )
+    closes = pd.Series(100.0, index=pd.bdate_range("2024-03-01", "2024-05-31"))
+    pos = st.sentiment_trend_positions(closes, sentiment, ma_months=3, lag_months=0)
+    assert (
+        pos[:"2024-03-28"] == 0
+    ).all()  # no decision until March's reading is final at its last trading day
+    assert pos["2024-03-29"] == 1 and (pos["2024-04-01":"2024-04-29"] == 1).all()
+    assert pos["2024-04-30"] == -1 and (pos["2024-05-01":] == -1).all()  # May: 64 < 68 (avg of 76, 64, 64)
+
+    lagged = st.sentiment_trend_positions(closes, sentiment, ma_months=3, lag_months=1)
+    assert lagged["2024-03-29"] == 0 and lagged["2024-04-30"] == 1 and lagged["2024-05-31"] == -1
+
+
+def test_sentiment_trend_table_shifts_by_release_lag():
+    sentiment = pd.Series([70.0, 70, 76], index=pd.to_datetime(["2024-01-01", "2024-02-01", "2024-03-01"]))
+    trend = st.sentiment_trend(sentiment, 3, 1).dropna()
+    assert list(trend.index.astype(str)) == ["2024-04"]
+    assert trend.iloc[0].to_dict() == {"value": 76.0, "moving_average": 72.0, "signal": 1.0}

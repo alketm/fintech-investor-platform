@@ -90,7 +90,13 @@ class EventStudyRequest(BaseModel):
 
 
 class LongShortRequest(BaseModel):
-    strategy: Literal["moving_average", "time_series_momentum", "rsi_mean_reversion", "policy_uncertainty"]
+    strategy: Literal[
+        "moving_average",
+        "time_series_momentum",
+        "rsi_mean_reversion",
+        "policy_uncertainty",
+        "consumer_sentiment",
+    ]
     symbol: str
     start: str
     end: str
@@ -104,8 +110,18 @@ LONG_SHORT_TOOLS = {
     "time_series_momentum": ("backtest_time_series_momentum", {"lookback_days", "skip_days"}),
     "rsi_mean_reversion": ("backtest_rsi_mean_reversion", {"period", "lower", "upper", "exit_level"}),
     "policy_uncertainty": ("backtest_policy_uncertainty", {"lookback_days", "threshold", "signal_lag_days"}),
+    "consumer_sentiment": ("backtest_consumer_sentiment", {"ma_months", "release_lag_months"}),
 }
-INTEGER_PARAMS = {"fast", "slow", "lookback_days", "skip_days", "period", "signal_lag_days"}
+INTEGER_PARAMS = {
+    "fast",
+    "slow",
+    "lookback_days",
+    "skip_days",
+    "period",
+    "signal_lag_days",
+    "ma_months",
+    "release_lag_months",
+}
 
 
 class EarningsStudyRequest(BaseModel):

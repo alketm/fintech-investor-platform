@@ -13,7 +13,7 @@ mcp = MCPServer(
     "mcp_backtest",
     instructions="Historical backtests on daily dividend-adjusted closes: buy and hold, and long-short "
     "strategies (moving-average crossover, time-series momentum, RSI mean reversion, Kansas City Fed policy-rate "
-    "uncertainty). Every backtest also reports buying and holding a benchmark (SPY by default) over the same "
+    "uncertainty, University of Michigan consumer sentiment trend). Every backtest also reports buying and holding a benchmark (SPY by default) over the same "
     "days. Results are simulations, not recommendations.",
 )
 
@@ -40,6 +40,14 @@ def _benchmark(benchmark: str, start: str, end: str) -> pd.Series | None:
     """Benchmark closes, or None when there are none: a missing benchmark shouldn't sink the backtest."""
     closes = _history(benchmark, start, end)
     return None if closes.empty else closes
+
+
+def _consumer_sentiment(start: str) -> pd.Series:
+    """University of Michigan consumer sentiment index (FRED UMCSENT), monthly, dated the first of the month."""
+    try:
+        return fred.series("UMCSENT", start=start)
+    except fred.FredError as e:
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -270,6 +278,63 @@ def backtest_policy_uncertainty(
         "pct_days_high": round(float((z > threshold).mean()) * 100, 1) if len(z) else None,
         "pct_days_low": round(float((z < -threshold).mean()) * 100, 1) if len(z) else None,
         "pct_days_neutral": round(float(z.abs().le(threshold).mean()) * 100, 1) if len(z) else None,
+    }
+    return result
+
+
+@mcp.tool()
+def backtest_consumer_sentiment(
+    symbol: str,
+    start: str,
+    end: str,
+    ma_months: int = 3,
+    release_lag_months: int = 0,
+    initial_capital: float = 10_000.0,
+    cost_bps: float = 5.0,
+    benchmark: str = "SPY",
+) -> dict:
+    """Long-short timing with the University of Michigan consumer sentiment index (FRED UMCSENT, monthly): at each
+    month end, long the symbol when sentiment is above its `ma_months` moving average, short when below, held for
+    the next month. A month's reading is treated as known at that month's end (the final release comes late in
+    the month); raise `release_lag_months` to wait longer. Same outputs as the other long-short backtests plus
+    the sentiment reading behind the last signal."""
+    if ma_months < 2 or release_lag_months < 0:
+        raise ToolError("Need ma_months >= 2 and release_lag_months >= 0")
+    try:
+        warm = pd.Timestamp(start) - pd.DateOffset(months=ma_months + release_lag_months + 3)
+    except ValueError as e:
+        raise ToolError(f"Dates must be YYYY-MM-DD: {e}") from e
+    sentiment = _consumer_sentiment(warm.strftime("%Y-%m-%d"))
+    if sentiment.empty:
+        raise ToolError("No University of Michigan consumer sentiment data returned")
+
+    lag = (
+        f", using the reading from {release_lag_months} month{'s' if release_lag_months != 1 else ''} earlier"
+    )
+    result = _long_short(
+        symbol,
+        start,
+        end,
+        30,  # enough history to hold the previous month-end's signal on the first day
+        lambda c: strategies.sentiment_trend_positions(c, sentiment, ma_months, release_lag_months),
+        initial_capital,
+        cost_bps,
+        f"At each month end, long when University of Michigan consumer sentiment is above its {ma_months}-month "
+        f"average, short when below{lag if release_lag_months else ''}; rebalanced monthly.",
+        {"ma_months": ma_months, "release_lag_months": release_lag_months},
+        benchmark,
+    )
+    trend = strategies.sentiment_trend(sentiment, ma_months, release_lag_months).dropna()
+    known = trend[trend.index <= pd.Timestamp(result["end"]).to_period("M")]  # as of the test end, not today
+    last = known.iloc[-1] if len(known) else None
+    result["sentiment"] = {
+        "source": "University of Michigan consumer sentiment index (FRED UMCSENT), 1966 Q1 = 100",
+        "reading_month": str(known.index[-1] - release_lag_months) if last is not None else None,
+        "value_at_end": round(float(last["value"]), 1) if last is not None else None,
+        "moving_average_at_end": round(float(last["moving_average"]), 1) if last is not None else None,
+        "signal_at_end": {1.0: "long", -1.0: "short"}.get(float(last["signal"]), "flat")
+        if last is not None
+        else None,
     }
     return result
 

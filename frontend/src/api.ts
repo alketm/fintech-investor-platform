@@ -78,7 +78,12 @@ export interface EventStudyResult {
   car_t_stat: number | null
 }
 
-export type LongShortStrategy = 'moving_average' | 'time_series_momentum' | 'rsi_mean_reversion' | 'policy_uncertainty'
+export type LongShortStrategy =
+  | 'moving_average'
+  | 'time_series_momentum'
+  | 'rsi_mean_reversion'
+  | 'policy_uncertainty'
+  | 'consumer_sentiment'
 
 export interface StrategyStats {
   total_return_pct: number
@@ -123,6 +128,13 @@ export interface LongShortResult {
     pct_days_high: number | null
     pct_days_low: number | null
     pct_days_neutral: number | null
+  }
+  sentiment?: {
+    source: string
+    reading_month: string | null
+    value_at_end: number | null
+    moving_average_at_end: number | null
+    signal_at_end: 'long' | 'short' | 'flat' | null
   }
 }
 

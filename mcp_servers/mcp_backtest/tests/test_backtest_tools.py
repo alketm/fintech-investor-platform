@@ -94,6 +94,7 @@ async def test_tools_registered():
         "backtest_time_series_momentum",
         "backtest_rsi_mean_reversion",
         "backtest_policy_uncertainty",
+        "backtest_consumer_sentiment",
     }
 
 
@@ -122,3 +123,25 @@ def test_policy_uncertainty_needs_fred_key(monkeypatch):
     monkeypatch.delenv("FRED_API_KEY", raising=False)
     with pytest.raises(ToolError, match="FRED_API_KEY is not set"):
         server.backtest_policy_uncertainty("SPY", "2022-01-01", "2025-01-01")
+
+
+def test_consumer_sentiment_tool(monkeypatch):
+    months = pd.date_range("2015-01-01", "2025-12-01", freq="MS")
+    sentiment = pd.Series(80 + 10 * np.sin(np.arange(len(months)) / 3), index=months)
+    monkeypatch.setattr(server, "_consumer_sentiment", lambda start: sentiment[sentiment.index >= start])
+    out = server.backtest_consumer_sentiment("SPY", "2020-01-01", "2025-01-01")
+    assert out["parameters"] == {"ma_months": 3, "release_lag_months": 0, "cost_bps": 5.0}
+    assert out["activity"]["pct_days_flat"] == 0  # the previous month-end signal holds from the first day
+    s = out["sentiment"]
+    assert s["reading_month"] == "2024-12" and "UMCSENT" in s["source"]  # as of the test end, not today
+    assert s["signal_at_end"] == ("long" if s["value_at_end"] > s["moving_average_at_end"] else "short")
+    assert s["signal_at_end"] == out["activity"]["current_position"]
+    assert "consumer sentiment" in out["rule"] and "monthly" in out["rule"]
+    with pytest.raises(ToolError, match="ma_months >= 2"):
+        server.backtest_consumer_sentiment("SPY", "2020-01-01", "2025-01-01", ma_months=1)
+
+
+def test_consumer_sentiment_needs_fred_key(monkeypatch):
+    monkeypatch.delenv("FRED_API_KEY", raising=False)
+    with pytest.raises(ToolError, match="FRED_API_KEY is not set"):
+        server.backtest_consumer_sentiment("SPY", "2022-01-01", "2025-01-01")

@@ -162,7 +162,25 @@ const STRATEGIES: TileOption<BacktestKind>[] = [
     title: 'Policy-rate uncertainty',
     description: 'Kansas City Fed index: short when policy uncertainty spikes, long when it is unusually low.',
   },
+  {
+    id: 'consumer_sentiment',
+    tag: 'Long-short · macro',
+    title: 'Consumer sentiment trend',
+    description: 'Monthly: long when UMich sentiment is above its 3-month average, short when below. Last 10 years.',
+  },
 ]
+
+/** Strategies that come with their own test period, in years up to today. */
+const PERIOD_YEARS: Partial<Record<BacktestKind, number>> = { consumer_sentiment: 10 }
+
+const isoDate = (d: Date) => d.toISOString().slice(0, 10)
+
+function lastYears(years: number) {
+  const end = new Date()
+  const start = new Date(end)
+  start.setFullYear(end.getFullYear() - years)
+  return { start: isoDate(start), end: isoDate(end) }
+}
 
 const PARAMS: Record<
   LongShortStrategy,
@@ -187,6 +205,10 @@ const PARAMS: Record<
     { key: 'threshold', label: 'Threshold (std devs)', value: 0.5, min: 0, step: 0.25 },
     { key: 'signal_lag_days', label: 'Signal lag (days)', value: 1, min: 0 },
   ],
+  consumer_sentiment: [
+    { key: 'ma_months', label: 'Moving average (months)', value: 3, min: 2 },
+    { key: 'release_lag_months', label: 'Release lag (months)', value: 0, min: 0 },
+  ],
 }
 
 const defaults = (kind: LongShortStrategy) => Object.fromEntries(PARAMS[kind].map((p) => [p.key, p.value]))
@@ -202,6 +224,8 @@ function Backtest({ symbols }: { symbols: SymbolGroup[] | null }) {
   const choose = (next: BacktestKind) => {
     setKind(next)
     setParams(next === 'buy_and_hold' ? {} : defaults(next))
+    const years = PERIOD_YEARS[next]
+    if (years) setForm((f) => ({ ...f, ...lastYears(years) }))
     hold.reset()
     longShort.reset()
   }
@@ -370,6 +394,16 @@ function LongShortView({ result }: { result: LongShortResult }) {
             label="High / low / neutral"
             value={`${result.uncertainty.pct_days_high} / ${result.uncertainty.pct_days_low} / ${result.uncertainty.pct_days_neutral}%`}
           />
+        </div>
+      )}
+      {result.sentiment && (
+        <div className="stats compact">
+          <Stat
+            label={`UMich sentiment, ${result.sentiment.reading_month ?? '—'}`}
+            value={result.sentiment.value_at_end?.toFixed(1) ?? '—'}
+          />
+          <Stat label={`${result.parameters.ma_months}-month average`} value={result.sentiment.moving_average_at_end?.toFixed(1) ?? '—'} />
+          <Stat label="Signal at end" value={result.sentiment.signal_at_end ?? '—'} />
         </div>
       )}
       <div className="stats compact">

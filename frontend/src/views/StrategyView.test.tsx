@@ -122,9 +122,21 @@ describe('StrategyView', () => {
     stubFetch()
     render(<StrategyView />)
     const strategy = screen.getByRole('group', { name: 'Strategy' })
-    expect(within(strategy).getAllByRole('radio')).toHaveLength(5)
+    expect(within(strategy).getAllByRole('radio')).toHaveLength(6)
     expect(within(strategy).getByRole('radio', { name: /Buy and hold/ })).toBeChecked()
     expect(within(screen.getByRole('group', { name: 'Event type' })).getAllByRole('radio')).toHaveLength(3)
+  })
+
+  it('sets the consumer sentiment strategy to the last 10 years with monthly parameters', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-31T12:00:00Z'))
+    stubFetch()
+    render(<StrategyView />)
+    fireEvent.click(screen.getByRole('radio', { name: /Consumer sentiment trend/ }))
+    expect(screen.getByLabelText('Start')).toHaveValue('2016-10-31')
+    expect(screen.getByLabelText('End')).toHaveValue('2026-10-31')
+    expect(screen.getByLabelText('Moving average (months)')).toHaveValue(3)
+    vi.useRealTimers()
   })
 
   it('shows inputs that match the chosen event study', () => {
