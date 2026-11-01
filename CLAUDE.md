@@ -20,6 +20,8 @@ Every feature moves through `intent/<feature>/`:
 3. `plan.md` — produced in plan mode before any code is edited. If implementation departs from the plan, update `plan.md` in the same commit.
 
 - Work on a branch, never on `main`. Changes reach `main` only through a reviewed PR.
+- The pre-commit hook (`.githooks`, via `core.hooksPath`) blocks commits on `main` and runs `make lint`; a
+  failing lint blocks the commit. Fix the code (`make format`), don't bypass with `--no-verify`.
 - Parallel tasks each get their own worktree (`claude --worktree <name>`).
 - Bug fixes: write a failing test, confirm it fails for the expected reason, commit it, then fix the code without editing the test.
 

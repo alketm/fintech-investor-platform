@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
-# Local stand-in for branch protection: no direct commits on main.
-# Work on a branch and merge it in. Override once with: git commit --no-verify
+# Local stand-in for branch protection and required checks.
+# Override once with: git commit --no-verify
 branch=$(git symbolic-ref --short HEAD 2>/dev/null || true)
 if [ "$branch" = "main" ]; then
   echo "Blocked: don't commit directly on main. Create a branch: git switch -c <name>" >&2
+  exit 1
+fi
+
+# Lint must pass (ruff check, ruff format --check, oxlint, tsc). Checks the working tree, so unstaged edits count.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+if ! output=$(make lint 2>&1); then
+  echo "$output" >&2
+  echo "Blocked: make lint failed. Fix it (make format fixes most Python issues), then commit again." >&2
   exit 1
 fi
