@@ -293,11 +293,12 @@ def backtest_consumer_sentiment(
     cost_bps: float = 5.0,
     benchmark: str = "SPY",
 ) -> dict:
-    """Long-short timing with the University of Michigan consumer sentiment index (FRED UMCSENT, monthly): at each
-    month end, long the symbol when sentiment is above its `ma_months` moving average, short when below, held for
-    the next month. A month's reading is treated as known at that month's end (the final release comes late in
-    the month); raise `release_lag_months` to wait longer. Same outputs as the other long-short backtests plus
-    the sentiment reading behind the last signal."""
+    """Long-short timing with the University of Michigan consumer sentiment index (FRED UMCSENT, monthly). At each
+    month end: long the symbol when sentiment is above its `ma_months` moving average and that average isn't
+    falling, short when below and the average isn't rising, flat otherwise; held for the next month. So a long
+    exits when the average turns down and a short exits when it turns up. A month's reading is treated as known
+    at that month's end (the final release comes late in the month); raise `release_lag_months` to wait longer.
+    Same outputs as the other long-short backtests plus the sentiment reading behind the last signal."""
     if ma_months < 2 or release_lag_months < 0:
         raise ToolError("Need ma_months >= 2 and release_lag_months >= 0")
     try:
@@ -320,7 +321,8 @@ def backtest_consumer_sentiment(
         initial_capital,
         cost_bps,
         f"At each month end, long when University of Michigan consumer sentiment is above its {ma_months}-month "
-        f"average, short when below{lag if release_lag_months else ''}; rebalanced monthly.",
+        f"average, short when below{lag if release_lag_months else ''}; a long exits when the average turns down "
+        "and a short when it turns up, staying flat until both agree again; rebalanced monthly.",
         {"ma_months": ma_months, "release_lag_months": release_lag_months},
         benchmark,
     )
@@ -332,6 +334,9 @@ def backtest_consumer_sentiment(
         "reading_month": str(known.index[-1] - release_lag_months) if last is not None else None,
         "value_at_end": round(float(last["value"]), 1) if last is not None else None,
         "moving_average_at_end": round(float(last["moving_average"]), 1) if last is not None else None,
+        "moving_average_change_at_end": round(float(last["moving_average_change"]), 2)
+        if last is not None and pd.notna(last["moving_average_change"])
+        else None,
         "signal_at_end": {1.0: "long", -1.0: "short"}.get(float(last["signal"]), "flat")
         if last is not None
         else None,

@@ -81,14 +81,25 @@ def policy_uncertainty_positions(
 
 
 def sentiment_trend(sentiment: pd.Series, ma_months: int, lag_months: int) -> pd.DataFrame:
-    """Monthly sentiment, its `ma_months` moving average and the signal (+1 above, -1 below), indexed by the month
+    """Monthly sentiment, its `ma_months` moving average, the average's change and the signal, indexed by the month
     the signal can first be used: a reading for month M is final by the end of M, so with `lag_months` = 0 it
-    sets the position from M's last trading day."""
+    sets the position from M's last trading day.
+
+    Signal: +1 when sentiment is above the average and the average isn't falling, -1 when below and the average
+    isn't rising, else 0. So a long exits when the average turns down and a short when it turns up, and neither
+    is entered against the average's direction. The first average has no change yet and counts as not turning.
+    """
     s = sentiment.dropna().sort_index()
     s.index = s.index.to_period("M")
     s = s[~s.index.duplicated(keep="last")].asfreq("M")
     ma = s.rolling(ma_months).mean()
-    frame = pd.DataFrame({"value": s, "moving_average": ma, "signal": np.sign(s - ma)})
+    change = ma.diff()
+    signal = pd.Series(
+        np.select([(s > ma) & ~(change < 0), (s < ma) & ~(change > 0)], [1.0, -1.0], 0.0), index=s.index
+    ).where(ma.notna())
+    frame = pd.DataFrame(
+        {"value": s, "moving_average": ma, "moving_average_change": change, "signal": signal}
+    )
     frame.index = frame.index + lag_months
     return frame
 
@@ -96,7 +107,8 @@ def sentiment_trend(sentiment: pd.Series, ma_months: int, lag_months: int) -> pd
 def sentiment_trend_positions(
     closes: pd.Series, sentiment: pd.Series, ma_months: int, lag_months: int
 ) -> pd.Series:
-    """Long when sentiment is above its moving average, short when below; re-decided on each month's last day."""
+    """`sentiment_trend` signal (long above a non-falling average, short below a non-rising one, else flat),
+    re-decided on each month's last day."""
     month = closes.index.to_period("M")
     last_day_of_month = closes.index.to_series().groupby(month).transform("max") == closes.index
     signal = sentiment_trend(sentiment, ma_months, lag_months)["signal"]

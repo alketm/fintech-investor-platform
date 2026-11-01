@@ -131,12 +131,14 @@ def test_consumer_sentiment_tool(monkeypatch):
     monkeypatch.setattr(server, "_consumer_sentiment", lambda start: sentiment[sentiment.index >= start])
     out = server.backtest_consumer_sentiment("SPY", "2020-01-01", "2025-01-01")
     assert out["parameters"] == {"ma_months": 3, "release_lag_months": 0, "cost_bps": 5.0}
-    assert out["activity"]["pct_days_flat"] == 0  # the previous month-end signal holds from the first day
     s = out["sentiment"]
     assert s["reading_month"] == "2024-12" and "UMCSENT" in s["source"]  # as of the test end, not today
-    assert s["signal_at_end"] == ("long" if s["value_at_end"] > s["moving_average_at_end"] else "short")
-    assert s["signal_at_end"] == out["activity"]["current_position"]
-    assert "consumer sentiment" in out["rule"] and "monthly" in out["rule"]
+    above, change = s["value_at_end"] > s["moving_average_at_end"], s["moving_average_change_at_end"]
+    expected = "long" if above and change >= 0 else "short" if not above and change <= 0 else "flat"
+    assert s["signal_at_end"] == expected == out["activity"]["current_position"]
+    a = out["activity"]
+    assert a["pct_days_long"] > 0 and a["pct_days_short"] > 0 and a["pct_days_flat"] > 0
+    assert "turns down" in out["rule"] and "monthly" in out["rule"]
     with pytest.raises(ToolError, match="ma_months >= 2"):
         server.backtest_consumer_sentiment("SPY", "2020-01-01", "2025-01-01", ma_months=1)
 

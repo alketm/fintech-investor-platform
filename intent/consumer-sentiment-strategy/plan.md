@@ -14,3 +14,8 @@ Rule + tests → tool + tests → backend → UI → live check.
 
 ## Risks
 - Monthly signals give few trades over 10 years; results are sensitive to a handful of months.
+
+## Change: exits on the average's direction
+The owner asked that a long exit when the 3-month average goes down and a short exit when it goes up.
+`sentiment_trend` now also returns the average's change and goes flat in those cases; the tool, rule text,
+Strategy tile and sentiment readout describe the exits. Tests cover both exits.

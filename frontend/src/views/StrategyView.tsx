@@ -166,7 +166,8 @@ const STRATEGIES: TileOption<BacktestKind>[] = [
     id: 'consumer_sentiment',
     tag: 'Long-short · macro',
     title: 'Consumer sentiment trend',
-    description: 'Monthly: long when UMich sentiment is above its 3-month average, short when below. Last 10 years.',
+    description:
+      'Monthly: long above the 3-month average, short below; exit when the average turns against the position. Last 10 years.',
   },
 ]
 
@@ -364,6 +365,9 @@ function EquityChart({ curve, lines }: { curve: ({ date: string } & Partial<Reco
   )
 }
 
+/** Direction of a change: ▲ rising, ▼ falling, ▶ unchanged or unknown. */
+const trendArrow = (change: number | null) => (change == null || change === 0 ? '▶' : change > 0 ? '▲' : '▼')
+
 function LongShortView({ result }: { result: LongShortResult }) {
   const a = result.activity
   const columns: Column[] = [
@@ -402,7 +406,10 @@ function LongShortView({ result }: { result: LongShortResult }) {
             label={`UMich sentiment, ${result.sentiment.reading_month ?? '—'}`}
             value={result.sentiment.value_at_end?.toFixed(1) ?? '—'}
           />
-          <Stat label={`${result.parameters.ma_months}-month average`} value={result.sentiment.moving_average_at_end?.toFixed(1) ?? '—'} />
+          <Stat
+            label={`${result.parameters.ma_months}-month average`}
+            value={`${result.sentiment.moving_average_at_end?.toFixed(1) ?? '—'} ${trendArrow(result.sentiment.moving_average_change_at_end)}`}
+          />
           <Stat label="Signal at end" value={result.sentiment.signal_at_end ?? '—'} />
         </div>
       )}
