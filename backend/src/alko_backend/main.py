@@ -149,6 +149,15 @@ class LargeMoveStudyRequest(BaseModel):
     lookback_years: int = Field(5, ge=1, le=20)
 
 
+class CreditSpreadStudyRequest(BaseModel):
+    symbol: str
+    threshold: float = Field(1.25, gt=1)
+    ma_days: int = Field(21, ge=2, le=252)
+    benchmark: str = "SPY"
+    window: int = Field(10, ge=1, le=30)
+    lookback_years: int = Field(10, ge=1, le=30)
+
+
 async def _tool(request: Request, server: str, tool: str, args: dict) -> dict:
     try:
         return await request.app.state.pool.call_json(server, tool, args)
@@ -201,6 +210,11 @@ async def earnings_study(body: EarningsStudyRequest, request: Request):
 @app.post("/api/strategy/event-study/large-moves")
 async def large_move_study(body: LargeMoveStudyRequest, request: Request):
     return await _tool(request, "mcp_event_study", "run_large_move_event_study", body.model_dump())
+
+
+@app.post("/api/strategy/event-study/credit-spread")
+async def credit_spread_study(body: CreditSpreadStudyRequest, request: Request):
+    return await _tool(request, "mcp_event_study", "run_credit_spread_event_study", body.model_dump())
 
 
 @app.get("/api/agents")

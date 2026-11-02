@@ -138,6 +138,12 @@ def test_event_study_endpoints(client, pool):
         == 200
     )
     assert pool.calls[-1][1] == "run_large_move_event_study" and pool.calls[-1][2]["threshold_sigma"] == 2.5
+    assert client.post("/api/strategy/event-study/credit-spread", json={"symbol": "XLF"}).status_code == 200
+    _, tool, args = pool.calls[-1]
+    assert tool == "run_credit_spread_event_study"
+    assert (args["threshold"], args["ma_days"], args["window"], args["lookback_years"]) == (1.25, 21, 10, 10)
+    bad = client.post("/api/strategy/event-study/credit-spread", json={"symbol": "XLF", "threshold": 0.9})
+    assert bad.status_code == 422
 
 
 def test_long_short_policy_uncertainty_maps_params(client, pool):

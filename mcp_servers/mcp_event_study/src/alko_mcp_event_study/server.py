@@ -8,11 +8,13 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
 from alko_mcp_event_study import analytics as a
+from alko_mcp_macro import fred
 
 mcp = MCPServer(
     "mcp_event_study",
     instructions="Market-model event studies: abnormal returns (stock return minus what the benchmark explains) "
-    "around a date, around past earnings announcements, and after large daily moves.",
+    "around a date, around past earnings announcements, after large daily moves, and after high-yield credit "
+    "spread spikes.",
 )
 MARKET_CLOSE_HOUR = 16  # US/Eastern
 
@@ -31,6 +33,14 @@ def _closes(symbol: str, start: str, end: str) -> pd.Series:
 
 def _earnings_dates(symbol: str, limit: int) -> pd.DataFrame:
     return yf.Ticker(symbol).get_earnings_dates(limit=limit)
+
+
+def _hy_spread(start: str) -> pd.Series:
+    """ICE BofA US High Yield Index option-adjusted spread (FRED BAMLH0A0HYM2), percentage points, daily."""
+    try:
+        return fred.series("BAMLH0A0HYM2", start=start)
+    except fred.FredError as e:
+        raise ToolError(str(e)) from e
 
 
 def _today() -> pd.Timestamp:
@@ -233,6 +243,96 @@ def run_large_move_event_study(
         "skipped": skipped,
         "note": "Post-event CAR covers days +1 to +window and excludes the move itself. |t| >= 2 is treated as "
         "significant; a handful of events is not enough to rely on.",
+    }
+
+
+@mcp.tool()
+def run_credit_spread_event_study(
+    symbol: str,
+    threshold: float = 1.25,
+    ma_days: int = 21,
+    benchmark: str = "SPY",
+    window: int = 10,
+    lookback_years: int = 10,
+) -> dict:
+    """What happens to a stock or ETF after high-yield credit spreads spike: events are days over the last
+    `lookback_years` when the ICE BofA US High Yield option-adjusted spread (FRED BAMLH0A0HYM2) first rises above
+    `threshold` times its `ma_days`-day moving average (a spell above it counts once; events within `window` days
+    of an earlier one are skipped). The spread is published after the day it describes, so day 0 is the next
+    trading day. Reports the average cumulative return over days 0 to +`window`, both market-model abnormal
+    (versus `benchmark`) and total, with t-statistics, the average abnormal path from -`window` to +`window`,
+    and the event list."""
+    symbol, benchmark = symbol.strip().upper(), benchmark.strip().upper()
+    window, lookback_years = max(1, min(window, 30)), max(1, min(lookback_years, 30))
+    if threshold <= 1 or ma_days < 2:
+        raise ToolError("Need threshold > 1 and ma_days >= 2")
+    today = _today()
+    since = today - pd.DateOffset(years=lookback_years)
+    spread = _hy_spread((since - pd.Timedelta(days=ma_days * 2 + 30)).strftime("%Y-%m-%d"))
+    if spread.empty:
+        raise ToolError("No high-yield spread data returned")
+    returns = _returns(symbol, benchmark, since - pd.Timedelta(days=400), today + pd.Timedelta(days=1))
+
+    detected = [
+        e
+        for e in a.detect_spread_widening(spread, ma_days, threshold, window)
+        if pd.Timestamp(e["date"]) >= since
+    ]
+    windows, totals, events, skipped, last_day0 = [], [], [], [], None
+    for e in detected:
+        day0 = a.day0_position(returns.index, pd.Timestamp(e["date"]), after_close=True)
+        if day0 is None or (last_day0 is not None and day0 - last_day0 <= window):
+            skipped.append(
+                {"date": e["date"], "reason": "No trading day after it" if day0 is None else "Overlaps"}
+            )
+            continue
+        try:
+            ew = a.event_window(returns, day0, window)
+        except ValueError as err:
+            skipped.append({"date": e["date"], "reason": str(err)})
+            continue
+        total = float((1 + returns["stock"].iloc[day0 : day0 + window + 1]).prod() - 1)
+        windows.append(ew)
+        totals.append(total)
+        events.append(
+            {
+                **e,
+                "day0": str(returns.index[day0].date()),
+                "day0_abnormal_pct": a.pct(a.window_car(ew, window, 0, 0), 2),
+                "abnormal_car_pct": a.pct(a.window_car(ew, window, 0, window), 2),
+                "total_return_pct": a.pct(total, 2),
+            }
+        )
+        last_day0 = day0
+    history_start = spread.dropna().index[0]
+    covered = (
+        f"Spread history available from {history_start.date()} only (FRED carries a limited span of ICE BofA "
+        "data), so earlier spikes can't be detected. "
+        if history_start > since + pd.Timedelta(days=ma_days * 2 + 30)
+        else ""
+    )
+    if not events:
+        raise ToolError(
+            f"No high-yield spread spikes above {threshold:g}x the {ma_days}-day average in the last "
+            f"{lookback_years} years with enough {symbol} history around them. {covered}".strip()
+        )
+    return {
+        "symbol": symbol,
+        "benchmark": benchmark,
+        "series": "ICE BofA US High Yield Index option-adjusted spread (FRED BAMLH0A0HYM2), percentage points",
+        "threshold": threshold,
+        "ma_days": ma_days,
+        "window": window,
+        "since": str(since.date()),
+        "spread_history_start": str(history_start.date()),
+        "abnormal": a.aggregate(windows, window, car_from=0),
+        "total": a.summarize_cars(totals),
+        "events": events[-30:],
+        "skipped": skipped,
+        "note": f"{covered}CAR covers days 0 to +{window}; day 0 is the first trading day after the spread reading. "
+        "Abnormal returns remove what the benchmark explains, so they show the reaction relative to the market; "
+        "total returns include the market's own move. |t| >= 2 is treated as significant; a handful of events "
+        "is not enough to rely on.",
     }
 
 

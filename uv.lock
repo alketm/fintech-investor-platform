@@ -105,6 +105,7 @@ name = "alko-mcp-event-study"
 version = "0.1.0"
 source = { editable = "mcp_servers/mcp_event_study" }
 dependencies = [
+    { name = "alko-mcp-macro" },
     { name = "mcp" },
     { name = "numpy" },
     { name = "pandas" },
@@ -113,6 +114,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "alko-mcp-macro", editable = "mcp_servers/mcp_macro" },
     { name = "mcp", specifier = ">=1.2" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.2" },

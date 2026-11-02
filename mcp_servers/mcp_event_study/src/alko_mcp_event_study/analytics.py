@@ -156,3 +156,44 @@ def detect_large_moves(
         )
         last = pos
     return events
+
+
+def summarize_cars(cars: list[float]) -> dict | None:
+    """Count, average, median, share positive and cross-sectional t-stat of per-event cumulative returns."""
+    if not cars:
+        return None
+    values = np.array(cars)
+    n = len(values)
+    sd = values.std(ddof=1) if n > 1 else np.nan
+    return {
+        "events": n,
+        "average_car_pct": pct(values.mean()),
+        "median_car_pct": pct(float(np.median(values))),
+        "pct_positive": round(float((values > 0).mean()) * 100, 1),
+        "t_stat": round(float(values.mean() / (sd / np.sqrt(n))), 2) if n > 1 and sd > 0 else None,
+    }
+
+
+def detect_spread_widening(spread: pd.Series, ma_days: int, threshold: float, min_gap: int) -> list[dict]:
+    """Days a spread first rises above `threshold` times its `ma_days`-day moving average (that day included).
+    Only crossings count: the day before must have been at or below the threshold, so a spell above it is one
+    event. A crossing within `min_gap` observations after a kept event is skipped so windows don't overlap."""
+    spread = spread.dropna().sort_index()
+    ma = spread.rolling(ma_days).mean()
+    ratio = spread / ma
+    above = (ratio > threshold).fillna(False)
+    crossings = np.flatnonzero((above & ~above.shift(1, fill_value=False)).values)
+    events, last = [], None
+    for pos in crossings:
+        if pos < ma_days or (last is not None and pos - last <= min_gap):
+            continue
+        events.append(
+            {
+                "date": str(spread.index[pos].date()),
+                "spread": round(float(spread.iloc[pos]), 2),
+                "moving_average": round(float(ma.iloc[pos]), 2),
+                "ratio": round(float(ratio.iloc[pos]), 3),
+            }
+        )
+        last = pos
+    return events

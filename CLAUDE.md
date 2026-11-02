@@ -7,8 +7,8 @@ Changes to this file are reviewed like code.
 Python 3.12 via uv, Node via npm; both live in `~/.local/bin` (the Makefile adds it to PATH).
 - `make install` — `uv sync --all-packages` + `npm install`
 - `make dev` — backend on :8000 and UI on :5173. Needs `ANTHROPIC_API_KEY` for chat and `FRED_API_KEY` for the
-  macro server, from the shell or the git-ignored `.env` (the owner edits `.env`; never write keys to files).
-- `make test` — pytest then vitest. Healthy: `158 passed` and `Tests  12 passed`. Exits non-zero on failure.
+  FRED-backed servers, from the shell or the git-ignored `.env` (the owner edits `.env`; never write keys to files).
+- `make test` — pytest then vitest. Healthy: `162 passed` and `Tests  13 passed`. Exits non-zero on failure.
 - `make lint` — ruff check, ruff format --check, oxlint, `tsc -b`. Healthy: `All checks passed!`, no tsc output.
 - `make build` — frontend bundle. Healthy: `✓ built in …`
 - Health check with backend running: `curl localhost:8000/api/health` lists nine MCP servers and their tools.
@@ -42,7 +42,7 @@ If a test fails, fix the code, not the test. Never skip or delete a failing test
   MCP server's tools. Holdings seed: `backend/data/portfolios.json`.
 - `mcp_servers/mcp_<name>/` — one uv package per data domain (Python package `alko_mcp_<name>`); tools in
   `server.py`, pure math in `analytics.py`. Server names start with `mcp_` (folder, config key, MCPServer name).
-  Market data only comes from here (yfinance; FRED for `mcp_macro` and `mcp_backtest`), never directly from the backend.
+  Market data only comes from here (yfinance; FRED for `mcp_macro`, `mcp_backtest` and `mcp_event_study`), never directly from the backend.
   MCP servers start with a minimal environment: list any variable a server needs in `MCP_SERVER_ENV`.
 - Adding an MCP server: new package, add to `MCP_SERVERS` in `backend/src/alko_backend/config.py` and to
   `backend/pyproject.toml`, then give a focused agent its server name (`mcp_<name>`) in `servers`.

@@ -83,8 +83,9 @@ FOCUSED_AGENTS = [
     AgentSpec(
         "event_study",
         "Event study analyst",
-        "Abnormal returns around a date, earnings announcements and large moves.",
-        "Run event studies (a single date, past earnings announcements, or large daily moves) and interpret "
+        "Abnormal returns around a date, earnings announcements, large moves and credit spread spikes.",
+        "Run event studies (a single date, past earnings announcements, large daily moves, or high-yield credit "
+        "spread spikes) and interpret "
         "abnormal returns, their statistical significance and the number of events behind them.",
         servers=("mcp_event_study",),
     ),

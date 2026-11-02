@@ -2,8 +2,9 @@ import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import {
   api,
   type BacktestResult,
+  type CarSummary,
+  type CreditSpreadStudyResult,
   type EarningsStudyResult,
-  type EventAggregate,
   type EventStudyResult,
   type LargeMoveStudyResult,
   type LongShortResult,
@@ -468,7 +469,7 @@ function LongShortView({ result }: { result: LongShortResult }) {
 
 // --- event studies --------------------------------------------------------------------------------------
 
-type StudyKind = 'single' | 'earnings' | 'large_moves'
+type StudyKind = 'single' | 'earnings' | 'large_moves' | 'credit_spread'
 
 const STUDIES: TileOption<StudyKind>[] = [
   { id: 'single', tag: 'One event', title: 'Single date', description: 'Abnormal returns around a date you choose.' },
@@ -484,6 +485,12 @@ const STUDIES: TileOption<StudyKind>[] = [
     title: 'Large daily moves',
     description: 'What tends to follow unusually big up or down days.',
   },
+  {
+    id: 'credit_spread',
+    tag: 'Macro',
+    title: 'High-yield spread spikes',
+    description: 'BofA high-yield spread above 1.25× its 21-day average: what follows for the symbol.',
+  },
 ]
 
 function EventStudy({ symbols }: { symbols: SymbolGroup[] | null }) {
@@ -495,16 +502,20 @@ function EventStudy({ symbols }: { symbols: SymbolGroup[] | null }) {
   const [maxEvents, setMaxEvents] = useState(12)
   const [sigma, setSigma] = useState(2.5)
   const [years, setYears] = useState(5)
+  const [spreadThreshold, setSpreadThreshold] = useState(1.25)
+  const [maDays, setMaDays] = useState(21)
   const single = useRunner<EventStudyResult>()
   const earnings = useRunner<EarningsStudyResult>()
   const moves = useRunner<LargeMoveStudyResult>()
-  const busy = single.busy || earnings.busy || moves.busy
-  const error = single.error || earnings.error || moves.error
+  const credit = useRunner<CreditSpreadStudyResult>()
+  const busy = single.busy || earnings.busy || moves.busy || credit.busy
+  const error = single.error || earnings.error || moves.error || credit.error
 
   const choose = (next: StudyKind) => {
     setKind(next)
-    setWindow(next === 'large_moves' ? 10 : 5)
-    ;[single, earnings, moves].forEach((r) => r.reset())
+    setWindow(next === 'large_moves' || next === 'credit_spread' ? 10 : 5)
+    setYears(next === 'credit_spread' ? 10 : 5)
+    ;[single, earnings, moves, credit].forEach((r) => r.reset())
   }
 
   const submit = (e: FormEvent) => {
@@ -513,6 +524,10 @@ function EventStudy({ symbols }: { symbols: SymbolGroup[] | null }) {
     if (kind === 'earnings') earnings.run(() => api.earningsStudy({ symbol, benchmark, window, max_events: maxEvents }))
     if (kind === 'large_moves')
       moves.run(() => api.largeMoveStudy({ symbol, threshold_sigma: sigma, benchmark, window, lookback_years: years }))
+    if (kind === 'credit_spread')
+      credit.run(() =>
+        api.creditSpreadStudy({ symbol, threshold: spreadThreshold, ma_days: maDays, benchmark, window, lookback_years: years }),
+      )
   }
 
   return (
@@ -531,7 +546,7 @@ function EventStudy({ symbols }: { symbols: SymbolGroup[] | null }) {
         <Field label="Benchmark">
           <input value={benchmark} onChange={(e) => setBenchmark(e.target.value.toUpperCase())} required />
         </Field>
-        <Field label={kind === 'large_moves' ? 'Days after (window)' : 'Window (± days)'}>
+        <Field label={kind === 'large_moves' || kind === 'credit_spread' ? 'Days after (window)' : 'Window (± days)'}>
           <NumberInput value={window} min={1} max={30} onChange={setWindow} />
         </Field>
         {kind === 'earnings' && (
@@ -549,6 +564,19 @@ function EventStudy({ symbols }: { symbols: SymbolGroup[] | null }) {
             </Field>
           </>
         )}
+        {kind === 'credit_spread' && (
+          <>
+            <Field label="Spread above (× average)">
+              <NumberInput value={spreadThreshold} min={1.05} step={0.05} onChange={setSpreadThreshold} />
+            </Field>
+            <Field label="Moving average (days)">
+              <NumberInput value={maDays} min={2} max={252} onChange={setMaDays} />
+            </Field>
+            <Field label="Lookback (years)">
+              <NumberInput value={years} min={1} max={30} onChange={setYears} />
+            </Field>
+          </>
+        )}
         <button type="submit" disabled={busy}>
           {busy ? 'Running…' : 'Run event study'}
         </button>
@@ -557,6 +585,7 @@ function EventStudy({ symbols }: { symbols: SymbolGroup[] | null }) {
       {kind === 'single' && single.result && <SingleEventView result={single.result} />}
       {kind === 'earnings' && earnings.result && <EarningsView result={earnings.result} />}
       {kind === 'large_moves' && moves.result && <LargeMovesView result={moves.result} />}
+      {kind === 'credit_spread' && credit.result && <CreditSpreadView result={credit.result} />}
     </div>
   )
 }
@@ -609,7 +638,7 @@ function SingleEventView({ result }: { result: EventStudyResult }) {
   )
 }
 
-function AggregateTable({ groups }: { groups: [string, EventAggregate | MoveGroup | null][] }) {
+function AggregateTable({ groups }: { groups: [string, CarSummary | MoveGroup | null][] }) {
   const moveCols = groups.some(([, g]) => g && 'pct_continuing' in g)
   return (
     <table>
@@ -713,6 +742,54 @@ function LargeMovesView({ result }: { result: LargeMoveStudyResult }) {
                 <td className={`num ${tone(e.return_pct)}`}>{pct(e.return_pct)}</td>
                 <td className="num">{Math.abs(e.sigma_multiple).toFixed(1)}</td>
                 <td className={`num ${tone(e.post_car_pct)}`}>{pct(e.post_car_pct)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted small">{result.note}</p>
+    </div>
+  )
+}
+
+function CreditSpreadView({ result }: { result: CreditSpreadStudyResult }) {
+  return (
+    <div className="result">
+      <p className="muted rule">
+        Days since {result.spread_history_start > result.since ? result.spread_history_start : result.since} (spread
+        data available from {result.spread_history_start}) when the high-yield spread first rose above {result.threshold}× its{' '}
+        {result.ma_days}-day average; returns from the next trading day (day 0) to day +{result.window}.
+      </p>
+      <AggregateTable
+        groups={[
+          [`Abnormal vs ${result.benchmark}`, result.abnormal],
+          ['Total return', result.total],
+        ]}
+      />
+      <h4>Average abnormal return by day ({result.abnormal.events} events)</h4>
+      <ArBars rows={pathRows(result.abnormal.average_path)} />
+      <h4>Events</h4>
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Spread date</th>
+              <th className="num">Spread</th>
+              <th className="num">× avg</th>
+              <th className="num">Day 0</th>
+              <th className="num">Abnormal CAR</th>
+              <th className="num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...result.events].reverse().map((e) => (
+              <tr key={e.date}>
+                <td>{e.date}</td>
+                <td className="num">{e.spread.toFixed(2)}%</td>
+                <td className="num">{e.ratio.toFixed(2)}</td>
+                <td className={`num ${tone(e.day0_abnormal_pct)}`}>{pct(e.day0_abnormal_pct)}</td>
+                <td className={`num ${tone(e.abnormal_car_pct)}`}>{pct(e.abnormal_car_pct)}</td>
+                <td className={`num ${tone(e.total_return_pct)}`}>{pct(e.total_return_pct)}</td>
               </tr>
             ))}
           </tbody>

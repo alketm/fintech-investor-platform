@@ -155,12 +155,15 @@ export interface PathPoint {
   car_pct: number
 }
 
-export interface EventAggregate {
+export interface CarSummary {
   events: number
   average_car_pct: number
   median_car_pct: number
   pct_positive: number
   t_stat: number | null
+}
+
+export interface EventAggregate extends CarSummary {
   car_days: string
   average_path: PathPoint[]
 }
@@ -208,6 +211,30 @@ export interface LargeMoveStudyResult {
     direction: 'up' | 'down'
     day0_abnormal_pct: number
     post_car_pct: number
+  }[]
+  note: string
+}
+
+export interface CreditSpreadStudyResult {
+  symbol: string
+  benchmark: string
+  series: string
+  threshold: number
+  ma_days: number
+  window: number
+  since: string
+  spread_history_start: string
+  abnormal: EventAggregate
+  total: CarSummary
+  events: {
+    date: string
+    spread: number
+    moving_average: number
+    ratio: number
+    day0: string
+    day0_abnormal_pct: number
+    abnormal_car_pct: number
+    total_return_pct: number
   }[]
   note: string
 }
@@ -271,6 +298,14 @@ export const api = {
     window: number
     lookback_years: number
   }) => post<LargeMoveStudyResult>('/api/strategy/event-study/large-moves', body),
+  creditSpreadStudy: (body: {
+    symbol: string
+    threshold: number
+    ma_days: number
+    benchmark: string
+    window: number
+    lookback_years: number
+  }) => post<CreditSpreadStudyResult>('/api/strategy/event-study/credit-spread', body),
   chat: (body: {
     agent: string
     messages: ChatMessage[]

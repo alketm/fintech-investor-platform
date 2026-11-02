@@ -141,5 +141,10 @@ async def test_new_tools_registered_and_errors_reach_client(monkeypatch):
     async with Client(server.mcp) as client:
         names = {t.name for t in (await client.list_tools()).tools}
         result = await client.call_tool("run_earnings_event_study", {"symbol": "VTI"})
-    assert names == {"run_event_study", "run_earnings_event_study", "run_large_move_event_study"}
+    assert names == {
+        "run_event_study",
+        "run_earnings_event_study",
+        "run_large_move_event_study",
+        "run_credit_spread_event_study",
+    }
     assert result.is_error and "No earnings history for VTI" in result.content[0].text

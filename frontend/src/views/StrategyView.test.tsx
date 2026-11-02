@@ -124,7 +124,7 @@ describe('StrategyView', () => {
     const strategy = screen.getByRole('group', { name: 'Strategy' })
     expect(within(strategy).getAllByRole('radio')).toHaveLength(7)
     expect(within(strategy).getByRole('radio', { name: /Buy and hold/ })).toBeChecked()
-    expect(within(screen.getByRole('group', { name: 'Event type' })).getAllByRole('radio')).toHaveLength(3)
+    expect(within(screen.getByRole('group', { name: 'Event type' })).getAllByRole('radio')).toHaveLength(4)
   })
 
   it('sets the consumer sentiment strategy to the last 10 years with monthly parameters', () => {
@@ -160,6 +160,35 @@ describe('StrategyView', () => {
     expect(screen.getByLabelText('Go short above (× realized)')).toHaveValue(2)
     expect(screen.getByLabelText('Go long below (× realized)')).toHaveValue(1.7)
     expect(screen.getByLabelText('Back to neutral at (× realized)')).toHaveValue(1.8)
+  })
+
+  it('runs a high-yield spread event study with its thresholds', async () => {
+    const path = [-1, 0, 1].map((day) => ({ day, abnormal_return_pct: day === 0 ? -1.2 : 0.1, car_pct: 0 }))
+    const fetchMock = stubFetch({
+      symbol: 'XLF',
+      benchmark: 'SPY',
+      series: 'BAMLH0A0HYM2',
+      threshold: 1.25,
+      ma_days: 21,
+      window: 10,
+      since: '2016-11-01',
+      spread_history_start: '2023-11-01',
+      abnormal: { events: 4, average_car_pct: -2.5, median_car_pct: -2, pct_positive: 25, t_stat: -2.1, car_days: '+0 to +10', average_path: path },
+      total: { events: 4, average_car_pct: -6.75, median_car_pct: -5, pct_positive: 0, t_stat: -3.2 },
+      events: [
+        { date: '2020-03-05', spread: 6.1, moving_average: 4.2, ratio: 1.45, day0: '2020-03-06', day0_abnormal_pct: -1.5, abnormal_car_pct: -3.1, total_return_pct: -18.2 },
+      ],
+      note: 'CAR covers days 0 to +10.',
+    })
+    render(<StrategyView />)
+    fireEvent.click(screen.getByRole('radio', { name: /High-yield spread spikes/ }))
+    expect(screen.getByLabelText('Spread above (× average)')).toHaveValue(1.25)
+    expect(screen.getByLabelText('Lookback (years)')).toHaveValue(10)
+    fireEvent.click(screen.getByRole('button', { name: 'Run event study' }))
+    expect(await screen.findByText('-6.75%')).toBeInTheDocument()
+    expect(screen.getByText('-18.20%')).toBeInTheDocument()
+    const [, init] = fetchMock.mock.calls.find(([u]) => u === '/api/strategy/event-study/credit-spread')!
+    expect(JSON.parse(init!.body as string)).toMatchObject({ threshold: 1.25, ma_days: 21, window: 10, lookback_years: 10 })
   })
 
   it('shows inputs that match the chosen event study', () => {

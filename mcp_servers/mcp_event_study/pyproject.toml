@@ -2,10 +2,13 @@
 name = "alko-mcp-event-study"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["mcp>=1.2", "yfinance>=0.2.50", "pandas>=2.2", "numpy>=1.26"]
+dependencies = ["mcp>=1.2", "yfinance>=0.2.50", "pandas>=2.2", "numpy>=1.26", "alko-mcp-macro"]
 
 [project.scripts]
 alko-mcp-event-study = "alko_mcp_event_study.server:main"
+
+[tool.uv.sources]
+alko-mcp-macro = { workspace = true }  # shared FRED client
 
 [build-system]
 requires = ["hatchling"]
