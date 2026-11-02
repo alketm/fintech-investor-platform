@@ -12,9 +12,9 @@ from alko_mcp_macro import fred
 mcp = MCPServer(
     "mcp_backtest",
     instructions="Historical backtests on daily dividend-adjusted closes: buy and hold, and long-short "
-    "strategies (moving-average crossover, time-series momentum, RSI mean reversion, Kansas City Fed policy-rate "
-    "uncertainty, University of Michigan consumer sentiment bands, VIX versus realized volatility). Every backtest also reports buying and holding a benchmark (SPY by default) over the same "
-    "days. Results are simulations, not recommendations.",
+    "strategies (moving-average crossover, time-series momentum, RSI mean reversion, Kansas City Fed monetary "
+    "policy uncertainty, University of Michigan consumer sentiment bands, VIX versus realized volatility). "
+    "Every backtest also reports buying and holding a benchmark (SPY by default) over the same days. Results are simulations, not recommendations.",
 )
 
 
@@ -226,58 +226,72 @@ def backtest_policy_uncertainty(
     symbol: str,
     start: str,
     end: str,
-    lookback_days: int = 252,
-    threshold: float = 0.5,
+    ma_days: int = 21,
+    short_above: float = 1.4,
+    long_below: float = 1.2,
+    exit_level: float = 1.3,
     signal_lag_days: int = 1,
     initial_capital: float = 10_000.0,
     cost_bps: float = 5.0,
     benchmark: str = "SPY",
 ) -> dict:
-    """Long-short timing with the Kansas City Fed's Policy Rate Uncertainty index (KC PRU, option-implied
-    uncertainty about the policy rate, from FRED): z-score of KC PRU against its trailing `lookback_days` mean,
-    using the value from `signal_lag_days` trading days earlier. Short the symbol when z > `threshold`
-    (unusually high uncertainty), long when z < -`threshold`, flat in between. Same outputs as the other
-    long-short backtests plus the latest KC PRU reading and how often each signal applied."""
-    if lookback_days < 20 or threshold < 0 or signal_lag_days < 0:
-        raise ToolError("Need lookback_days >= 20, threshold >= 0 and signal_lag_days >= 0")
+    """Monetary Policy Uncertainty: long-short timing with the Kansas City Fed's Policy Rate Uncertainty index
+    (KC PRU, option-implied uncertainty about the policy rate, from FRED) as a multiple of its `ma_days`
+    trading-day moving average, using the index from `signal_lag_days` trading days earlier. Each day: from
+    neutral, short above `short_above`, long below `long_below`, else stay neutral; a short goes neutral once
+    below `exit_level` and a long once above `exit_level`. Same outputs as the other long-short backtests plus
+    the KC PRU reading, average and ratio behind the last signal."""
+    if ma_days < 2 or signal_lag_days < 0:
+        raise ToolError("Need ma_days >= 2 and signal_lag_days >= 0")
+    if not 0 < long_below <= exit_level <= short_above:
+        raise ToolError("Need 0 < long_below <= exit_level <= short_above")
+    warmup = 252  # a year before the start: fills the average and settles the state machine
     try:
-        warm = pd.Timestamp(start) - pd.Timedelta(days=int(lookback_days * 1.5) + 60)
+        warm = pd.Timestamp(start) - pd.Timedelta(days=int(warmup * 1.5) + 60)
     except ValueError as e:
         raise ToolError(f"Dates must be YYYY-MM-DD: {e}") from e
     index = _policy_uncertainty(warm.strftime("%Y-%m-%d"))
     if index.empty:
         raise ToolError("No Kansas City Fed policy-rate uncertainty data returned")
-
-    def signal(closes: pd.Series) -> pd.Series:
-        return strategies.policy_uncertainty_positions(
-            closes, index, lookback_days, threshold, signal_lag_days
-        )
+    bands = (short_above, long_below, exit_level)
 
     result = _long_short(
         symbol,
         start,
         end,
-        lookback_days,
-        signal,
+        warmup,
+        lambda c: strategies.policy_uncertainty_positions(c, index, ma_days, *bands, signal_lag_days),
         initial_capital,
         cost_bps,
-        f"Short when Kansas City Fed policy-rate uncertainty is more than {threshold:g} standard deviations above "
-        f"its {lookback_days}-day average, long when more than {threshold:g} below, flat otherwise "
-        f"(index lagged {signal_lag_days} trading day{'s' if signal_lag_days != 1 else ''}).",
-        {"lookback_days": lookback_days, "threshold": threshold, "signal_lag_days": signal_lag_days},
+        f"Daily, with Kansas City Fed policy-rate uncertainty as a multiple of its {ma_days}-day average "
+        f"(index lagged {signal_lag_days} trading day{'s' if signal_lag_days != 1 else ''}): from neutral, short "
+        f"above {short_above:g}x, long below {long_below:g}x, else stay neutral; a short goes neutral below "
+        f"{exit_level:g}x, a long goes neutral above {exit_level:g}x.",
+        {
+            "ma_days": ma_days,
+            "short_above": short_above,
+            "long_below": long_below,
+            "exit_level": exit_level,
+            "signal_lag_days": signal_lag_days,
+        },
         benchmark,
     )
-    closes = _history(result["symbol"], start, end)
-    z = strategies.uncertainty_zscore(closes, index, lookback_days, signal_lag_days).dropna()
-    at_end = index[index.index <= closes.index[-1]]  # the reading as of the test's last day, not today
+    closes = _history(result["symbol"], warm.strftime("%Y-%m-%d"), end)
+    table = strategies.uncertainty_ratio(closes, index, ma_days, signal_lag_days)
+    table["signal"] = strategies.ratio_band_signals(table["ratio"], *bands)
+    known = table[table.index <= pd.Timestamp(result["end"])].dropna()  # as of the test end, not today
+    last = known.iloc[-1] if len(known) else None
+    in_test = known[known.index >= pd.Timestamp(result["start"])]["ratio"]
     result["uncertainty"] = {
         "source": "Kansas City Fed's Measure of Policy Rate Uncertainty (FRED KCPRU), percentage points",
-        "value_at_end": round(float(at_end.iloc[-1]), 3) if len(at_end) else None,
-        "value_date": str(at_end.index[-1].date()) if len(at_end) else None,
-        "zscore_at_end": round(float(z.iloc[-1]), 2) if len(z) else None,
-        "pct_days_high": round(float((z > threshold).mean()) * 100, 1) if len(z) else None,
-        "pct_days_low": round(float((z < -threshold).mean()) * 100, 1) if len(z) else None,
-        "pct_days_neutral": round(float(z.abs().le(threshold).mean()) * 100, 1) if len(z) else None,
+        "value_date": str(known.index[-1].date()) if last is not None else None,
+        "value_at_end": round(float(last["value"]), 3) if last is not None else None,
+        "moving_average_at_end": round(float(last["moving_average"]), 3) if last is not None else None,
+        "ratio_at_end": round(float(last["ratio"]), 2) if last is not None else None,
+        "signal_at_end": {1.0: "long", -1.0: "short"}.get(float(last["signal"]), "flat")
+        if last is not None
+        else None,
+        "median_ratio": round(float(in_test.median()), 2) if len(in_test) else None,
     }
     return result
 
@@ -410,7 +424,7 @@ def backtest_vix_volatility(
         benchmark,
     )
     table = strategies.vix_ratio(spy, vix, window_days)
-    table["signal"] = strategies.vix_band_signals(table["ratio"], *bands)
+    table["signal"] = strategies.ratio_band_signals(table["ratio"], *bands)
     known = table[table.index <= pd.Timestamp(result["end"])].dropna()  # as of the test end, not today
     last = known.iloc[-1] if len(known) else None
     in_test = table[table.index >= pd.Timestamp(result["start"])]["ratio"].dropna()

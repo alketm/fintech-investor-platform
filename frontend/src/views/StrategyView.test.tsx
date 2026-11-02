@@ -142,6 +142,16 @@ describe('StrategyView', () => {
     vi.useRealTimers()
   })
 
+  it('shows the Monetary Policy Uncertainty thresholds as parameters', () => {
+    stubFetch()
+    render(<StrategyView />)
+    fireEvent.click(screen.getByRole('radio', { name: /Monetary Policy Uncertainty/ }))
+    expect(screen.getByLabelText('Moving average (days)')).toHaveValue(21)
+    expect(screen.getByLabelText('Go short above (× avg)')).toHaveValue(1.4)
+    expect(screen.getByLabelText('Go long below (× avg)')).toHaveValue(1.2)
+    expect(screen.getByLabelText('Back to neutral at (× avg)')).toHaveValue(1.3)
+  })
+
   it('shows the VIX strategy thresholds as parameters', () => {
     stubFetch()
     render(<StrategyView />)

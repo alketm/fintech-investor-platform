@@ -105,23 +105,24 @@ def test_run_backtest_needs_data():
         st.run_backtest(daily([1, 2]), daily([1, 1]), pd.Timestamp("2025-01-01"), 1000, 0)
 
 
-def test_policy_uncertainty_positions_follow_zscore_with_lag():
-    closes = daily([100.0] * 60)
-    index = daily([1.0] * 40 + [5.0] * 10 + [0.0] * 10)  # calm, then a spike, then unusually low
-    pos = st.policy_uncertainty_positions(closes, index, lookback_days=30, threshold=0.5, lag_days=1)
-    first_spike = closes.index[40]
-    assert pos[first_spike] == 0  # the spike is only known with a one-day lag
-    assert pos[closes.index[41]] == -1  # high uncertainty -> short
-    assert pos[closes.index[51]] == 1  # unusually low -> long
-    assert (pos.iloc[:15] == 0).all()  # not enough history for a z-score yet
+def test_policy_uncertainty_positions_follow_ratio_bands_with_lag():
+    closes = daily([100.0] * 40)
+    # Flat at 1.0 with a one-day spike to 2.0 on day 10.
+    index = daily([1.0] * 10 + [2.0] + [1.0] * 29)
+    pos = st.policy_uncertainty_positions(closes, index, 5, 1.4, 1.2, 1.3, lag_days=1)
+    assert (pos.iloc[:5] == 0).all()  # no full average yet (plus the one-day lag)
+    assert pos.iloc[5] == 1  # 1.0x the average < 1.2x: long
+    assert pos.iloc[10] == 1  # the spike is only known the next day
+    assert pos.iloc[11] == 0  # 2.0 / 1.2 = 1.67x > 1.3x: the long goes neutral (one step per day)
+    assert pos.iloc[12] == 1  # back to 1.0x: long again
 
 
-def test_uncertainty_index_is_aligned_to_trading_days():
+def test_uncertainty_ratio_aligns_index_to_trading_days():
     closes = daily([100.0] * 5, start="2025-01-06")  # Mon..Fri
     index = pd.Series([1.0, 3.0], index=pd.to_datetime(["2025-01-03", "2025-01-08"]))  # Fri before, Wed
-    z = st.uncertainty_zscore(closes, index, lookback_days=2, lag_days=0)
-    aligned = index.reindex(closes.index.union(index.index)).ffill().reindex(closes.index)
-    assert aligned.tolist() == [1.0, 1.0, 3.0, 3.0, 3.0] and len(z) == 5
+    table = st.uncertainty_ratio(closes, index, ma_days=2, lag_days=0)
+    assert table["value"].tolist() == [1.0, 1.0, 3.0, 3.0, 3.0]
+    assert table["ratio"].round(2).tolist()[1:] == [1.0, 1.5, 1.0, 1.0]
 
 
 MONTHS = pd.date_range("2024-01-01", periods=7, freq="MS")
@@ -179,11 +180,11 @@ def test_vix_band_signals_follow_the_state_machine():
     ratios = pd.Series([np.nan, 2.1, 1.9, 1.75, 1.6, 1.75, 1.85, 1.8, 2.05])
     # nan: no window yet. 2.1 > 2.0: short. 1.9: short holds above 1.8. 1.75 < 1.8: neutral.
     # 1.6 < 1.7: long. 1.75: long holds below 1.8. 1.85 > 1.8: neutral. 1.8: between, neutral. 2.05: short.
-    signals = st.vix_band_signals(ratios, 2.0, 1.7, 1.8)
+    signals = st.ratio_band_signals(ratios, 2.0, 1.7, 1.8)
     assert np.isnan(signals.iloc[0])
     assert signals.iloc[1:].tolist() == [-1, -1, 0, 1, 1, 0, 0, -1]
     # One step per day: a long that sees 2.5 goes neutral first, then short.
-    assert st.vix_band_signals(pd.Series([1.5, 2.5, 2.5]), 2.0, 1.7, 1.8).tolist() == [1, 0, -1]
+    assert st.ratio_band_signals(pd.Series([1.5, 2.5, 2.5]), 2.0, 1.7, 1.8).tolist() == [1, 0, -1]
 
 
 def test_vix_volatility_positions_align_to_the_traded_symbol():

@@ -19,3 +19,9 @@ Rule + tests → tool + tests → backend → UI → live check.
 
 ## Proof
 `make test`, `make lint`, `make build`, live API run and Strategy view screenshot.
+
+## Change: Monetary Policy Uncertainty bands
+The owner renamed the strategy "Monetary Policy Uncertainty" and replaced the z-score rule with bands on KC PRU
+as a multiple of its 21-day average (short above 1.4x, long below 1.2x, back to neutral across 1.3x). The band
+state machine is shared with the VIX strategy as `ratio_band_signals`. The API id and tool name stay
+`policy_uncertainty` / `backtest_policy_uncertainty`.

@@ -107,17 +107,24 @@ def test_policy_uncertainty_tool(monkeypatch):
     )  # runs to 2025-12
     out = server.backtest_policy_uncertainty("SPY", "2022-01-01", "2025-01-01")
     assert out["parameters"] == {
-        "lookback_days": 252,
-        "threshold": 0.5,
+        "ma_days": 21,
+        "short_above": 1.4,
+        "long_below": 1.2,
+        "exit_level": 1.3,
         "signal_lag_days": 1,
         "cost_bps": 5.0,
     }
     u = out["uncertainty"]
     assert u["value_date"] <= "2025-01-01" and "KCPRU" in u["source"]  # as of the test end, not today
-    assert u["pct_days_high"] + u["pct_days_low"] + u["pct_days_neutral"] == pytest.approx(100, abs=0.2)
-    assert "Kansas City Fed" in out["rule"]
-    with pytest.raises(ToolError, match="lookback_days >= 20"):
-        server.backtest_policy_uncertainty("SPY", "2022-01-01", "2025-01-01", lookback_days=5)
+    assert u["ratio_at_end"] == pytest.approx(u["value_at_end"] / u["moving_average_at_end"], abs=0.01)
+    assert u["signal_at_end"] == out["activity"]["current_position"]
+    a = out["activity"]
+    assert a["pct_days_long"] > 0 and a["pct_days_short"] > 0 and a["pct_days_flat"] > 0
+    assert "Kansas City Fed" in out["rule"] and "short above 1.4x" in out["rule"]
+    with pytest.raises(ToolError, match="ma_days >= 2"):
+        server.backtest_policy_uncertainty("SPY", "2022-01-01", "2025-01-01", ma_days=1)
+    with pytest.raises(ToolError, match="long_below <= exit_level"):
+        server.backtest_policy_uncertainty("SPY", "2022-01-01", "2025-01-01", exit_level=1.1)
 
 
 def test_policy_uncertainty_needs_fred_key(monkeypatch):

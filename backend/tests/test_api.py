@@ -148,15 +148,18 @@ def test_long_short_policy_uncertainty_maps_params(client, pool):
             "symbol": "SPY",
             "start": "2020-01-01",
             "end": "2024-01-01",
-            "params": {"lookback_days": 126, "threshold": 1.0, "signal_lag_days": 2},
+            "params": {"ma_days": 21.0, "short_above": 1.5, "signal_lag_days": 2},
         },
     )
     assert r.status_code == 200
     _, tool, args = pool.calls[-1]
     assert tool == "backtest_policy_uncertainty"
     assert (
-        args["signal_lag_days"] == 2 and isinstance(args["signal_lag_days"], int) and args["threshold"] == 1.0
+        args["signal_lag_days"] == 2
+        and isinstance(args["signal_lag_days"], int)
+        and args["short_above"] == 1.5
     )
+    assert args["ma_days"] == 21 and isinstance(args["ma_days"], int)
 
 
 def test_long_short_consumer_sentiment_maps_params(client, pool):

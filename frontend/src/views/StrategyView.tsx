@@ -159,8 +159,9 @@ const STRATEGIES: TileOption<BacktestKind>[] = [
   {
     id: 'policy_uncertainty',
     tag: 'Long-short · macro',
-    title: 'Policy-rate uncertainty',
-    description: 'Kansas City Fed index: short when policy uncertainty spikes, long when it is unusually low.',
+    title: 'Monetary Policy Uncertainty',
+    description:
+      'Daily, Kansas City Fed index vs its 21-day average: short above 1.4x, long below 1.2x, neutral across 1.3x.',
   },
   {
     id: 'consumer_sentiment',
@@ -209,8 +210,10 @@ const PARAMS: Record<
     { key: 'exit_level', label: 'Exit at', value: 50, min: 1, max: 99 },
   ],
   policy_uncertainty: [
-    { key: 'lookback_days', label: 'Lookback (days)', value: 252, min: 20 },
-    { key: 'threshold', label: 'Threshold (std devs)', value: 0.5, min: 0, step: 0.25 },
+    { key: 'ma_days', label: 'Moving average (days)', value: 21, min: 2 },
+    { key: 'short_above', label: 'Go short above (× avg)', value: 1.4, min: 0.1, step: 0.05 },
+    { key: 'long_below', label: 'Go long below (× avg)', value: 1.2, min: 0.1, step: 0.05 },
+    { key: 'exit_level', label: 'Back to neutral at (× avg)', value: 1.3, min: 0.1, step: 0.05 },
     { key: 'signal_lag_days', label: 'Signal lag (days)', value: 1, min: 0 },
   ],
   consumer_sentiment: [
@@ -406,10 +409,17 @@ function LongShortView({ result }: { result: LongShortResult }) {
             label={`KC PRU on ${result.uncertainty.value_date ?? '—'}`}
             value={result.uncertainty.value_at_end == null ? '—' : `${result.uncertainty.value_at_end.toFixed(2)} pts`}
           />
-          <Stat label="Z-score at end" value={result.uncertainty.zscore_at_end?.toFixed(2) ?? '—'} />
           <Stat
-            label="High / low / neutral"
-            value={`${result.uncertainty.pct_days_high} / ${result.uncertainty.pct_days_low} / ${result.uncertainty.pct_days_neutral}%`}
+            label={`${result.parameters.ma_days}-day average`}
+            value={result.uncertainty.moving_average_at_end == null ? '—' : `${result.uncertainty.moving_average_at_end.toFixed(2)} pts`}
+          />
+          <Stat
+            label="Index / average"
+            value={result.uncertainty.ratio_at_end == null ? '—' : `${result.uncertainty.ratio_at_end.toFixed(2)}×`}
+          />
+          <Stat
+            label="Median in test"
+            value={result.uncertainty.median_ratio == null ? '—' : `${result.uncertainty.median_ratio.toFixed(2)}×`}
           />
         </div>
       )}

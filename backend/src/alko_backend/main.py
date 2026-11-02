@@ -110,7 +110,10 @@ LONG_SHORT_TOOLS = {
     "moving_average": ("backtest_moving_average", {"fast", "slow"}),
     "time_series_momentum": ("backtest_time_series_momentum", {"lookback_days", "skip_days"}),
     "rsi_mean_reversion": ("backtest_rsi_mean_reversion", {"period", "lower", "upper", "exit_level"}),
-    "policy_uncertainty": ("backtest_policy_uncertainty", {"lookback_days", "threshold", "signal_lag_days"}),
+    "policy_uncertainty": (
+        "backtest_policy_uncertainty",
+        {"ma_days", "short_above", "long_below", "exit_level", "signal_lag_days"},
+    ),
     "consumer_sentiment": (
         "backtest_consumer_sentiment",
         {"ma_months", "short_below_pct", "long_above_pct", "exit_pct", "release_lag_months"},
@@ -127,6 +130,7 @@ INTEGER_PARAMS = {
     "ma_months",
     "release_lag_months",
     "window_days",
+    "ma_days",
 }
 
 

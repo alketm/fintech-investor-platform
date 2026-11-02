@@ -123,12 +123,12 @@ export interface LongShortResult {
   assumptions: string
   uncertainty?: {
     source: string
-    value_at_end: number | null
     value_date: string | null
-    zscore_at_end: number | null
-    pct_days_high: number | null
-    pct_days_low: number | null
-    pct_days_neutral: number | null
+    value_at_end: number | null
+    moving_average_at_end: number | null
+    ratio_at_end: number | null
+    signal_at_end: 'long' | 'short' | 'flat' | null
+    median_ratio: number | null
   }
   sentiment?: {
     source: string

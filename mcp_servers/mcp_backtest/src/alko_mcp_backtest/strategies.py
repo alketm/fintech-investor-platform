@@ -58,26 +58,29 @@ def rsi_mean_reversion_positions(
     return pd.Series(out, index=closes.index)
 
 
-def uncertainty_zscore(
-    closes: pd.Series, uncertainty: pd.Series, lookback_days: int, lag_days: int
-) -> pd.Series:
-    """Z-score of an uncertainty index on each trading day, using the value from `lag_days` trading days before.
-
-    The index is aligned to trading days by carrying the last published value forward.
-    """
+def uncertainty_ratio(closes: pd.Series, uncertainty: pd.Series, ma_days: int, lag_days: int) -> pd.DataFrame:
+    """An uncertainty index on each trading day (the value from `lag_days` trading days before, last published
+    value carried forward), its `ma_days` trading-day moving average and the index as a multiple of that
+    average."""
     aligned = uncertainty.reindex(closes.index.union(uncertainty.index)).ffill().reindex(closes.index)
     lagged = aligned.shift(lag_days)
-    mean = lagged.rolling(lookback_days, min_periods=lookback_days // 2).mean()
-    std = lagged.rolling(lookback_days, min_periods=lookback_days // 2).std()
-    return (lagged - mean) / std.where(std > 0)
+    ma = lagged.rolling(ma_days).mean()
+    return pd.DataFrame({"value": lagged, "moving_average": ma, "ratio": lagged / ma.where(ma > 0)})
 
 
 def policy_uncertainty_positions(
-    closes: pd.Series, uncertainty: pd.Series, lookback_days: int, threshold: float, lag_days: int
+    closes: pd.Series,
+    uncertainty: pd.Series,
+    ma_days: int,
+    short_above: float,
+    long_below: float,
+    exit_level: float,
+    lag_days: int,
 ) -> pd.Series:
-    """Short when uncertainty is unusually high (z > threshold), long when unusually low (z < -threshold)."""
-    z = uncertainty_zscore(closes, uncertainty, lookback_days, lag_days)
-    return pd.Series(np.select([z > threshold, z < -threshold], [-1.0, 1.0], 0.0), index=closes.index)
+    """`ratio_band_signals` on the uncertainty index as a multiple of its moving average: high uncertainty is
+    short, low is long."""
+    ratio = uncertainty_ratio(closes, uncertainty, ma_days, lag_days)["ratio"]
+    return ratio_band_signals(ratio, short_above, long_below, exit_level).fillna(0.0)
 
 
 def sentiment_band_signals(
@@ -160,8 +163,10 @@ def vix_ratio(spy: pd.Series, vix: pd.Series, window: int) -> pd.DataFrame:
     )
 
 
-def vix_band_signals(ratio: pd.Series, short_above: float, long_below: float, exit_level: float) -> pd.Series:
-    """Positions from VIX / realized volatility, one step per day, starting neutral.
+def ratio_band_signals(
+    ratio: pd.Series, short_above: float, long_below: float, exit_level: float
+) -> pd.Series:
+    """Positions from a ratio where high means short, one step per day, starting neutral.
 
     From neutral: short above `short_above`, long below `long_below`, else stay neutral.
     From short: neutral once below `exit_level`. From long: neutral once above `exit_level`.
@@ -192,9 +197,9 @@ def vix_volatility_positions(
     long_below: float,
     exit_level: float,
 ) -> pd.Series:
-    """`vix_band_signals` decided at each SPY close and applied to the traded symbol's trading days."""
+    """`ratio_band_signals` on VIX / realized volatility, decided at each SPY close and applied to the traded symbol's trading days."""
     ratio = vix_ratio(spy, vix, window)["ratio"]
-    signals = vix_band_signals(ratio, short_above, long_below, exit_level)
+    signals = ratio_band_signals(ratio, short_above, long_below, exit_level)
     return align_benchmark(signals.dropna(), closes.index).fillna(0.0)
 
 
