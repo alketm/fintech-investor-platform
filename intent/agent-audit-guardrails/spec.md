@@ -97,7 +97,8 @@ model is not in the table, the cost is NULL and the report counts it as unpriced
   one. The leak path is closed by `img-src` and `connect-src`, not by the script policy.
 
 ## Evals
-App evals live in `evals/agents/`, separate from the Claude Code config evals in `evals/README.md`. They run only with
+App eval cases live in `evals/agents/`, separate from the Claude Code config evals in `evals/README.md`, and the runner
+is `alko_backend/eval_runner.py` so tests can import it. They run only with
 `make eval FLOW=<name>`, never in CI or `make test`. Results go to the git-ignored `evals/agents/results/`: one JSONL row
 per case with `model`, `usage`, `stop_reason`, grade and estimated cost, plus a full trace file per case and an errors
 file for failed attempts. Runs can resume, and a case has a wall-clock limit.

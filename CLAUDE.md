@@ -8,9 +8,12 @@ Python 3.12 via uv, Node via npm; both live in `~/.local/bin` (the Makefile adds
 - `make install` — `uv sync --all-packages` + `npm install`
 - `make dev` — backend on :8000 and UI on :5173. Needs `ANTHROPIC_API_KEY` for chat and `FRED_API_KEY` for the
   FRED-backed servers, from the shell or the git-ignored `.env` (the owner edits `.env`; never write keys to files).
-- `make test` — pytest then vitest. Healthy: `162 passed` and `Tests  13 passed`. Exits non-zero on failure.
+- `make test` — pytest then vitest. Healthy: `232 passed` and `Tests  14 passed`. Needs no API key or network. Exits non-zero on failure.
 - `make lint` — ruff check, ruff format --check, oxlint, `tsc -b`. Healthy: `All checks passed!`, no tsc output.
 - `make build` — frontend bundle. Healthy: `✓ built in …`
+- `make eval FLOW=guardrail|advice [ARGS="--limit 5"]` — paid API calls, on demand only; never in `make test` or CI.
+  Get the owner's OK on cases, rubric and cost first. Results in git-ignored `evals/agents/results/`.
+- `uv run python -m alko_backend.audit usage|list|show <id>` — read the local audit trail.
 - Health check with backend running: `curl localhost:8000/api/health` lists nine MCP servers and their tools.
 
 ## Workflow
@@ -39,8 +42,13 @@ If a test fails, fix the code, not the test. Never skip or delete a failing test
 ## Architecture
 - `frontend/` — Vite + React + TS. Views: `src/views/` (Portfolio, Analysis, Strategy); chat in `src/components/ChatPanel.tsx`.
 - `backend/` — FastAPI (`alko_backend.main`). Starts every MCP server over stdio at startup (`mcp_pool.py`).
-  Agents in `agents.py`: `advisor` only delegates (`ask_<agent>` tools); each focused agent only sees its own
-  MCP server's tools. Holdings seed: `backend/data/portfolios.json`.
+  Agents in `agents.py`: `advisor` only delegates (`ask_<agent>` tools); each focused agent can only run its own
+  MCP server's tools, enforced when the tool runs. One token budget covers a whole chat request.
+  Holdings seed: `backend/data/portfolios.json`.
+- Chat path (`main.py`): `guardrails.py` screens the question (local rules, then Haiku) to answer, reframe or decline;
+  `audit.py` writes every request to git-ignored `backend/data/audit/audit.db`, kept 90 days. It holds holdings and full
+  conversations: never commit it or send it anywhere. Thinking there is API summaries only; costs are estimates from
+  `MODEL_PRICES`, so update that table when prices or fallback models change.
 - `mcp_servers/mcp_<name>/` — one uv package per data domain (Python package `alko_mcp_<name>`); tools in
   `server.py`, pure math in `analytics.py`. Server names start with `mcp_` (folder, config key, MCPServer name).
   Market data only comes from here (yfinance; FRED for `mcp_macro`, `mcp_backtest` and `mcp_event_study`), never directly from the backend.

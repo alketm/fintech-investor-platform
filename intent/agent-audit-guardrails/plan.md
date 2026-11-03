@@ -18,8 +18,8 @@ this plan is committed as `plan.md`.
 - `guardrails.py` (new): `Decision`, local rules, Haiku classifier using structured output, fixed decline replies,
   reframe instruction, and the `unscreened` fallback.
 - `agents.py`:
-  - Add a `RunContext` (audit collector plus shared token count) as an optional `run()` argument, so existing callers
-    and tests still work.
+  - Add the `RequestAudit` collector, which also holds the shared token count, as an optional `run()` argument, so
+    existing callers and tests still work.
   - Build a per-agent `{tool: server}` allowlist from `tools_for`, deny everything else, and remove `server_for_tool`
     (also from `mcp_pool.py`, the `ToolPool` protocol and `FakePool`).
   - Enforce delegation depth and check the budget before each model call.
@@ -38,7 +38,8 @@ this plan is committed as `plan.md`.
 - `frontend/src/api.ts`: add the new optional response fields.
 
 **Evals and project files**
-- `evals/agents/guardrail_cases.json`, `advice_cases.json`, `rubric.md` (new, drafts for owner review).
+- `evals/agents/guardrail_cases.json`, `advice_cases.json`, `advice_rubric.json` (new, drafts for owner review). The
+  rubric is JSON because the runner builds the judge's output schema from it.
 - `Makefile`: `eval` target requiring `FLOW=`. `.gitignore`: `backend/data/audit/`, `evals/agents/results/`.
 - `CLAUDE.md`: audit and guardrail architecture, eval command, new healthy test counts. `README.md`: audit CLI and where
   the data lives.
@@ -64,9 +65,9 @@ this plan is committed as `plan.md`.
 Commits go on the feature branch at logical points, and the work reaches `main` through a PR.
 
 ## Risks
-- **Usage accounting on fallbacks:** whether top-level `usage` already includes `iterations` isn't confirmed from what
-  I've read. Check the skill's migration guide and SDK types when writing `estimate_cost`, so a fallback isn't counted
-  twice. If it can't be settled from the docs, record the iterations and flag the cost as approximate.
+- **Usage accounting on fallbacks:** settled from the API docs: `usage.iterations` is the per-attempt source of truth
+  and top-level `usage` covers only the returned attempt, so totals sum the iterations when present. Attempts declined
+  before any output may not be billed, so costs on those calls can read slightly high.
 - **Thinking summaries** may be empty on some calls, so they're stored as-is. They also add to the audit database's size.
 - **Summaries in the tool loop:** the display change must not alter how `response.content` is passed back. Covered by a
   test on the second request's messages.
