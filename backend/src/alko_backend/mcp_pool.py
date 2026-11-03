@@ -37,12 +37,6 @@ class McpPool:
             for t in self.tools[server]
         ]
 
-    def server_for_tool(self, tool_name: str) -> str | None:
-        for server, tools in self.tools.items():
-            if any(t.name == tool_name for t in tools):
-                return server
-        return None
-
     async def call(self, server: str, tool: str, args: dict) -> tuple[str, bool]:
         """Call a tool; returns (text, is_error). The text is what the model sees."""
         result = await self._clients[server].call_tool(tool, args)

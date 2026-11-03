@@ -33,6 +33,21 @@ make dev                       # UI at http://localhost:5173
 
 Instead of exporting, you can put `KEY=value` lines in a `.env` file at the project root (git-ignored).
 
+## Audit trail
+Each chat is recorded in `backend/data/audit/audit.db`: questions, replies, tool calls, thinking summaries, tokens and
+estimated cost. The file is git-ignored, readable only by your user, and requests older than 90 days are removed and
+overwritten at startup. It's plain text on this machine and contains your holdings, so backups of this folder will copy it.
+
+```bash
+uv run python -m alko_backend.audit usage --days 30
+uv run python -m alko_backend.audit list
+uv run python -m alko_backend.audit show <request_id>
+```
+
+## Evals
+`make eval FLOW=guardrail` or `make eval FLOW=advice` runs the cases in `evals/agents/` against the real API, which
+costs money. Add `ARGS="--limit 5"` for a small pilot. Results go to the git-ignored `evals/agents/results/`.
+
 ## Local setup
 After cloning, enable the repo's git hooks (blocks direct commits and pushes to `main`):
 

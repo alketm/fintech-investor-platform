@@ -310,5 +310,10 @@ export const api = {
     agent: string
     messages: ChatMessage[]
     context: { view: View; portfolio_id: string }
-  }) => post<{ reply: string }>('/api/chat', body),
+  }) =>
+    post<{
+      reply: string
+      request_id?: string
+      guardrail?: { outcome: 'answer' | 'reframe' | 'decline'; category: string }
+    }>('/api/chat', body),
 }

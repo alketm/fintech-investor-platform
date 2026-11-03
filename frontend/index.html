@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 'unsafe-inline' scripts are needed by the Vite dev server. img-src and connect-src stop data leaving the page. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; connect-src 'self' ws://localhost:5173; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'"
+    />
     <title>FinTech Co - Investor Platform</title>
   </head>
   <body>

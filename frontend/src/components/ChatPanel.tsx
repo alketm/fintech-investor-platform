@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import Markdown from 'react-markdown'
+import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { type AgentInfo, api, type ChatMessage, type View } from '../api'
 
@@ -7,6 +7,16 @@ interface Props {
   view: View
   portfolioId: string
   onClose: () => void
+}
+
+// Replies can quote outside text such as news, so a markdown image must never load: its URL could carry data out.
+const markdownComponents: Components = {
+  img: ({ alt }) => <span>{alt}</span>,
+  a: ({ href, children }) => (
+    <a href={href} rel="noopener noreferrer">
+      {children}
+    </a>
+  ),
 }
 
 /** Chat with the advisor or a focused agent. Each agent keeps its own thread. */
@@ -75,7 +85,7 @@ export function ChatPanel({ view, portfolioId, onClose }: Props) {
         )}
         {messages.map((m, i) => (
           <div key={i} className={`msg ${m.role}`}>
-            {m.role === 'assistant' ? <Markdown remarkPlugins={[remarkGfm]}>{m.content}</Markdown> : m.content}
+            {m.role === 'assistant' ? <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{m.content}</Markdown> : m.content}
           </div>
         ))}
         {busy && <div className="msg assistant muted">Thinking…</div>}

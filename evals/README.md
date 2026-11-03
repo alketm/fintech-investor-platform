@@ -1,5 +1,7 @@
 # Evals
 
+App evals for the product's agents live in `agents/` (see the main README). This file covers Claude Code config evals.
+
 Real tasks that check Claude still behaves after changes to `CLAUDE.md` or `.claude/**`.
 Aim for 20–50 drawn from recent work. Each production incident gets an eval.
 
