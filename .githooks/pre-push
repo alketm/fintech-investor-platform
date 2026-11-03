@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Local stand-in for branch protection: changes reach main through a PR, not a push.
+# GitHub's own merge button doesn't run this hook. Override once with: git push --no-verify
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "Blocked: don't push directly to main. Push a branch and open a PR." >&2
+    exit 1
+  fi
+done
+exit 0

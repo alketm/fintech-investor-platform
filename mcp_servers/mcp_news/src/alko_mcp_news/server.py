@@ -66,10 +66,23 @@ def get_news(symbol: str, limit: int = 10) -> dict:
     Articles often only mention the ticker in passing; use related_tickers and the title to judge relevance.
     """
     limit = max(1, min(limit, 25))
-    # Ticker.news is often empty; the search endpoint is the reliable fallback.
-    items = _ticker(symbol.upper()).news or yf.Search(symbol.upper(), news_count=limit).news or []
+    items = _fetch_news(symbol.upper(), limit)
     articles = [_normalize(i) for i in items[:limit]]
     return {"symbol": symbol.upper(), "articles": [a for a in articles if a["title"]]}
+
+
+def _fetch_news(symbol: str, limit: int) -> list[dict]:
+    # Ticker.news is often empty and can raise; the search endpoint is the reliable fallback.
+    try:
+        items = _ticker(symbol).news
+    except Exception:
+        items = None
+    if items:
+        return items
+    try:
+        return yf.Search(symbol, news_count=limit).news or []
+    except Exception as e:
+        raise ToolError(f"News unavailable for {symbol}: {e}") from e
 
 
 @mcp.tool()

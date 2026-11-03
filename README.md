@@ -49,7 +49,7 @@ uv run python -m alko_backend.audit show <request_id>
 costs money. Add `ARGS="--limit 5"` for a small pilot. Results go to the git-ignored `evals/agents/results/`.
 
 ## Local setup
-After cloning, enable the repo's git hooks (blocks direct commits on `main`):
+After cloning, enable the repo's git hooks (blocks direct commits and pushes to `main`):
 
 ```bash
 git config core.hooksPath .githooks
