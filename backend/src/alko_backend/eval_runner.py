@@ -115,7 +115,9 @@ async def run_flow(
         _append(results_path, row)
 
     await asyncio.gather(*(attempt(c) for c in cases if c["id"] not in done))
-    return [json.loads(line) for line in results_path.open()] if results_path.exists() else []
+    selected = {c["id"] for c in cases}
+    rows = [json.loads(line) for line in results_path.open()] if results_path.exists() else []
+    return [r for r in rows if r["prompt_id"] in selected]
 
 
 def _append(path: Path, row: dict) -> None:
@@ -312,7 +314,19 @@ def summarize(rows: list[dict], primary: str) -> dict[str, Any]:
     passed = sum(r["grade"][primary] for r in scored)
     n = len(scored)
     costs = [r["cost_usd"] for r in rows]
+    # A fixed decline passes the rubric trivially, so also report the score for replies an agent actually wrote.
+    declined = [r for r in scored if r.get("meta", {}).get("status") == "declined"]
+    answered = [r for r in scored if r not in declined]
+    decline_counts = (
+        {
+            "declined_cases": len(declined),
+            f"{primary}_when_answered": _rate(int(sum(r["grade"][primary] for r in answered)), len(answered)),
+        }
+        if declined
+        else {}
+    )
     return {
+        **decline_counts,
         primary: _rate(int(passed), n),
         "margin_95": None if not n else round(1.96 * math.sqrt((passed / n) * (1 - passed / n) / n), 3),
         "cases": n,

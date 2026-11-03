@@ -35,8 +35,8 @@ Instead of exporting, you can put `KEY=value` lines in a `.env` file at the proj
 
 ## Audit trail
 Each chat is recorded in `backend/data/audit/audit.db`: questions, replies, tool calls, thinking summaries, tokens and
-estimated cost. The file is git-ignored, readable only by your user, and requests older than 90 days are removed at
-startup. It's plain text on this machine and contains your holdings, so backups of this folder will copy it.
+estimated cost. The file is git-ignored, readable only by your user, and requests older than 90 days are removed and
+overwritten at startup. It's plain text on this machine and contains your holdings, so backups of this folder will copy it.
 
 ```bash
 uv run python -m alko_backend.audit usage --days 30

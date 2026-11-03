@@ -9,7 +9,8 @@
 2. **Decline:** return a fixed reply for the category, without running an agent.
    **Reframe:** run the agent with an added instruction to give analysis and options, not a recommendation.
    **Answer** or **unscreened:** run the agent as today.
-3. Write one audit record, on success and on failure, then respond.
+3. Write one audit record, on success and on failure, then respond. Requests rejected before this point (unknown agent,
+   invalid body) are not recorded.
 
 The response keeps `agent`, `reply` and `tool_calls`, and adds `request_id` and `guardrail: {outcome, category}`.
 Declines appear in chat as a normal assistant reply. The UI gets no new views.
@@ -26,13 +27,13 @@ New module `guardrails.py`. `screen(messages) -> Decision(outcome, category, sou
 `source` is `rules`, `classifier` or `unscreened`.
 
 - **Local rules run first:** a small set of regular expressions for unmistakable phrasing in the `trade_execution`,
-  `prompt_injection` and `recommendation` categories. A match skips the classifier. Asking how to place a trade or what
-  an order type means is in scope, not `trade_execution`.
+  `prompt_injection` and `recommendation` categories. A match skips the classifier, so rules must be narrow: a request to
+  act has to open the message. Asking how to place a trade or what an order type means is in scope, not `trade_execution`.
 - **Classifier runs otherwise:** one `client.messages.create` call to `claude-haiku-5-5` with effort `low`, `max_tokens`
   256 and structured output (`output_config.format`) for `{category, reason}`. Its system prompt treats the text as data
   to classify, not instructions to follow. It receives the latest user message and up to four earlier messages, so a
   follow-up like "yes, do that" can be read in context.
-- **Failure:** on an API error or unusable output, the outcome is `answer`, the source `unscreened` and the reason
+- **Failure:** on an API error, unusable output or more than `GUARDRAIL_TIMEOUT_S` (20 seconds), the outcome is `answer`, the source `unscreened` and the reason
   records the error.
 - **Scope:** only the owner's messages via `/api/chat` are screened. Questions the advisor passes to specialists are not.
   Replies are not screened. This applies to every selectable agent.
@@ -43,8 +44,10 @@ The reframe instruction is a text block on the latest user turn, next to the exi
 New module `audit.py`, using standard-library `sqlite3`.
 
 - **Location:** `backend/data/audit/audit.db` (`AUDIT_DB` in `config.py`). The directory is git-ignored; the directory
-  is created `0700` and the file `0600`. WAL mode is not used.
-- **Retention:** at startup, delete requests older than `AUDIT_RETENTION_DAYS = 90`, with their child rows.
+  is created `0700` and the file `0600`. WAL mode is not used. If the database can't be opened at startup, the error is
+  logged and the rest of the app still runs.
+- **Retention:** at startup, delete requests older than `AUDIT_RETENTION_DAYS = 90`, with their child rows, and
+  overwrite the deleted text with `secure_delete`.
 - **Writes:** `RequestAudit` collects records in memory during the request and flushes them in one transaction, off the
   event loop, in a `finally` block. A failed flush logs an error with Python `logging` and does not affect the response.
 - **Secrets:** environment values and API keys are never written. Requests sent to Claude are not stored whole; system
@@ -143,8 +146,8 @@ not on specific numbers.
 10. A request over the budget makes no further model calls, including in specialists, and ends as `budget_exceeded`.
 11. A markdown image in a reply makes no network request and shows its alt text. The app loads under the CSP with no
     console violations in `make dev`.
-12. `make eval` is the only way to start a paid eval, and an oracle and a null run through each runner score about 100%
-    and 0% without API calls.
+12. `make test` and CI never start a paid eval (`make eval` is the documented way), and an oracle and a null run through
+    each runner score about 100% and 0% without API calls.
 13. With no API key, `make test` passes using fakes and makes no network calls.
 
 ## Concerns routed to owners

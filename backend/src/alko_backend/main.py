@@ -19,7 +19,7 @@ from alko_backend.portfolios import analyze, describe_for_agent, load_portfolios
 async def lifespan(app: FastAPI):
     load_env_file()
     app.state.audit_store = AuditStore()
-    app.state.audit_store.init()
+    app.state.audit_store.open()
     async with AsyncExitStack() as stack:
         pool = McpPool()
         await pool.start(stack)
@@ -301,6 +301,9 @@ async def chat(body: ChatRequest, request: Request):
     except anthropic.APIConnectionError as e:
         audit.finish(None, "error", str(e))
         raise HTTPException(502, "Could not reach the Claude API") from e
+    except Exception as e:
+        audit.finish(None, "error", f"{type(e).__name__}: {e}")
+        raise
     finally:
         await request.app.state.audit_store.flush(audit)
     return {

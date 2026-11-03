@@ -9,6 +9,7 @@ MAX_REQUEST_TOKENS = (
     500_000  # shared by every model call in one chat request; a broad five-specialist chat used 62k
 )
 GUARDRAIL_MODEL = "claude-haiku-5-5"
+GUARDRAIL_TIMEOUT_S = 20.0
 
 ROOT = Path(__file__).resolve().parents[3]
 ENV_FILE = ROOT / ".env"  # git-ignored; holds secrets such as FRED_API_KEY

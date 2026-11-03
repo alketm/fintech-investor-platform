@@ -90,7 +90,9 @@ def _attempts(usage: Any, served_model: str | None) -> list[tuple[str | None, di
     usage then covers only the attempt that produced the returned message."""
     iterations = getattr(usage, "iterations", None)
     if iterations:
-        return [(getattr(i, "model", None) or served_model, _tokens(i)) for i in iterations]
+        if len(iterations) == 1:
+            return [(served_model, _tokens(iterations[0]))]
+        return [(getattr(i, "model", None), _tokens(i)) for i in iterations]
     return [(served_model, _tokens(usage))]
 
 
@@ -210,6 +212,8 @@ class RequestAudit:
 
 
 def _insert(db: sqlite3.Connection, table: str, row: dict[str, Any]) -> None:
+    # Text SQLite can't store, such as a lone surrogate from a client, must not cost the whole record.
+    row = {k: v.encode("utf-8", "replace").decode() if isinstance(v, str) else v for k, v in row.items()}
     columns = ", ".join(row)
     values = ", ".join(f":{c}" for c in row)
     db.execute(f"INSERT INTO {table} ({columns}) VALUES ({values})", row)
@@ -222,6 +226,7 @@ class AuditStore:
     def _connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.path)
         db.row_factory = sqlite3.Row
+        db.execute("PRAGMA secure_delete = ON")  # purged text is overwritten, not just unlinked
         return db
 
     def init(self, retention_days: int = AUDIT_RETENTION_DAYS) -> None:
@@ -233,6 +238,13 @@ class AuditStore:
         with closing(self._connect()) as db, db:
             db.executescript(SCHEMA)
         self.purge(retention_days)
+
+    def open(self, retention_days: int = AUDIT_RETENTION_DAYS) -> None:
+        """`init` for app startup: an audit problem is logged and must not stop the rest of the app."""
+        try:
+            self.init(retention_days)
+        except (sqlite3.Error, OSError):
+            logger.exception("Could not open audit database at %s", self.path)
 
     def purge(self, retention_days: int = AUDIT_RETENTION_DAYS) -> None:
         cutoff = (datetime.now(UTC) - timedelta(days=retention_days)).isoformat()
@@ -254,20 +266,24 @@ class AuditStore:
         """Save off the event loop. A failed write is logged and never affects the response."""
         try:
             await asyncio.to_thread(self.save, audit)
-        except (sqlite3.Error, OSError):
+        except Exception:
             logger.exception("Could not write audit record for request %s", audit.id)
 
     def usage(self, days: int = 30) -> dict[str, list[dict]]:
         cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
-        totals = """COUNT(DISTINCT m.request_id) AS requests, SUM(m.input_tokens) AS input_tokens,
-            SUM(m.output_tokens) AS output_tokens, SUM(m.cache_read_tokens) AS cache_read_tokens,
-            SUM(m.cache_write_tokens) AS cache_write_tokens, SUM(m.est_cost_usd) AS est_cost_usd,
-            SUM(m.est_cost_usd IS NULL) AS unpriced_calls"""
-        joined = "FROM model_calls m JOIN requests r ON r.id = m.request_id WHERE r.started_at >= ?"
+        totals = """COUNT(DISTINCT r.id) AS requests, COALESCE(SUM(m.input_tokens), 0) AS input_tokens,
+            COALESCE(SUM(m.output_tokens), 0) AS output_tokens,
+            COALESCE(SUM(m.cache_read_tokens), 0) AS cache_read_tokens,
+            COALESCE(SUM(m.cache_write_tokens), 0) AS cache_write_tokens, SUM(m.est_cost_usd) AS est_cost_usd,
+            COALESCE(SUM(m.id IS NOT NULL AND m.est_cost_usd IS NULL), 0) AS unpriced_calls"""
+        # From requests, so a question declined by the local rules counts even with no model call.
+        joined = "FROM requests r LEFT JOIN model_calls m ON m.request_id = r.id WHERE r.started_at >= ?"
         queries = {
             "by_day": f"SELECT substr(r.started_at, 1, 10) AS day, {totals} {joined} GROUP BY day ORDER BY day",
-            "by_agent": f"SELECT m.agent, {totals} {joined} GROUP BY m.agent ORDER BY m.agent",
-            "by_model": f"SELECT m.served_model AS model, {totals} {joined} GROUP BY model ORDER BY model",
+            "by_agent": f"""SELECT COALESCE(m.agent, r.agent) AS agent, {totals} {joined}
+                GROUP BY COALESCE(m.agent, r.agent) ORDER BY agent""",
+            "by_model": f"""SELECT m.served_model AS model, {totals} {joined} AND m.id IS NOT NULL
+                GROUP BY model ORDER BY model""",
             "guardrail": """SELECT guardrail_outcome AS outcome, guardrail_source AS source, COUNT(*) AS requests
                 FROM requests WHERE started_at >= ? GROUP BY outcome, source ORDER BY outcome, source""",
         }
@@ -278,7 +294,8 @@ class AuditStore:
         sql = """SELECT r.id, r.started_at, r.agent, r.status, r.guardrail_outcome, r.question,
                 COALESCE(SUM(m.input_tokens + m.output_tokens + m.cache_read_tokens + m.cache_write_tokens), 0)
                     AS tokens,
-                SUM(m.est_cost_usd) AS est_cost_usd
+                SUM(m.est_cost_usd) AS est_cost_usd,
+                COALESCE(SUM(m.id IS NOT NULL AND m.est_cost_usd IS NULL), 0) AS unpriced_calls
             FROM requests r LEFT JOIN model_calls m ON m.request_id = r.id
             GROUP BY r.id ORDER BY r.started_at DESC LIMIT ?"""
         with closing(self._connect()) as db:

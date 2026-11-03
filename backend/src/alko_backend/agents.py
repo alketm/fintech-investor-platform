@@ -219,9 +219,14 @@ class AgentRunner:
                 return AgentResult(text, calls)
 
             uses = [b for b in response.content if b.type == "tool_use"]
+            # Wait for every tool, even after a failure: the others are already spending and need to be on record.
             results = await asyncio.gather(
-                *(self._execute(spec, u.name, u.input, depth, calls, audit) for u in uses)
+                *(self._execute(spec, u.name, u.input, depth, calls, audit) for u in uses),
+                return_exceptions=True,
             )
+            for result in results:
+                if isinstance(result, BaseException):
+                    raise result
             messages.append({"role": "assistant", "content": response.content})
             messages.append(
                 {
@@ -257,7 +262,12 @@ class AgentRunner:
         if denied:
             text, is_error = f"Unknown tool {name!r}.", True
         elif may_delegate:
-            text, is_error = await self._delegate(delegate, args, depth, calls, audit)
+            try:
+                text, is_error = await self._delegate(delegate, args, depth, calls, audit)
+            except Exception as e:  # fails the request, but the failed delegation still belongs in the audit
+                duration_ms = int((perf_counter() - started) * 1000)
+                audit.record_tool_call(spec.id, depth, name, None, args, str(e), True, False, duration_ms)
+                raise
         else:
             try:
                 text, is_error = await self.pool.call(server, name, args)
