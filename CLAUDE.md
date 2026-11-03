@@ -22,6 +22,7 @@ Every feature moves through `intent/<feature>/`:
 - Work on a branch, never on `main`. Changes reach `main` only through a reviewed PR.
 - The pre-commit hook (`.githooks`, via `core.hooksPath`) blocks commits on `main` and runs `make lint`; a
   failing lint blocks the commit. Fix the code (`make format`), don't bypass with `--no-verify`.
+  The pre-push hook blocks pushes to `main`; GitHub branch protection is not on (needs GitHub Pro on a private repo).
 - CI (`.github/workflows/ci.yml`) runs `make lint`, `make test` and `make build` on every PR and on pushes to `main`.
 - Parallel tasks each get their own worktree (`claude --worktree <name>`).
 - Bug fixes: write a failing test, confirm it fails for the expected reason, commit it, then fix the code without editing the test.
