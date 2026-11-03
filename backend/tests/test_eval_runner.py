@@ -1,5 +1,6 @@
 import asyncio
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -7,6 +8,7 @@ from alko_backend import eval_runner
 from alko_backend.eval_runner import (
     CaseResult,
     HarnessError,
+    advice_runner,
     grade_advice,
     grade_guardrail,
     guardrail_metrics,
@@ -237,3 +239,64 @@ async def test_judge_stop_and_missing_reply_are_errors():
 def test_judge_cannot_be_the_model_under_test(capsys):
     assert eval_runner.main(["--flow", "advice", "--judge-model", eval_runner.MODEL]) == 2
     assert "can't be the model under test" in capsys.readouterr().err
+
+
+async def test_guardrail_runner_oracle_and_null(tmp_path, cases):
+    needs_classifier = [c for c in cases if check_rules(c["input"]) is None]
+    oracle = FakeClaude(
+        {},
+        classifier=[
+            json.dumps({"category": c["expected_category"], "reason": "r"}) for c in needs_classifier
+        ],
+    )
+    rows = await run_flow(needs_classifier, guardrail_runner(oracle), tmp_path / "oracle", concurrency=1)
+    assert summarize(rows, "correct")["correct"] == 1.0
+
+    not_answer = [c for c in needs_classifier if OUTCOMES[c["expected_category"]] != "answer"]
+    rows = await run_flow(not_answer, guardrail_runner(FakeClaude({})), tmp_path / "null", concurrency=1)
+    assert summarize(rows, "correct")["correct"] == 0.0
+
+
+async def test_advice_runner_oracle_and_null_through_the_chat_path(tmp_path):
+    rubric = json.loads((eval_runner.CASES_DIR / "advice_rubric.json").read_text())
+    posted = []
+
+    async def post(path, json):
+        posted.append((path, json))
+        return SimpleNamespace(status_code=200, text="", json=lambda: {"request_id": "r1"})
+
+    http = SimpleNamespace(post=post)
+    store = SimpleNamespace(get=lambda request_id: {**RECORD, "id": request_id})
+    case = {"id": "c", "input": "Should I sell?", "agent": "news", "portfolio_id": "ira"}
+
+    for passed, score in ((True, 1.0), (False, 0.0)):
+        verdict = {r["id"]: {"passed": passed, "why": "w"} for r in rubric}
+        claude = FakeClaude({}, classifier=[json.dumps(verdict)])
+        rows = await run_flow(
+            [case], advice_runner(claude, http, store, "claude-sonnet-5-5"), tmp_path / str(passed)
+        )
+        assert rows[0]["grade"]["compliant"] == score
+
+    assert posted[0][0] == "/api/chat" and posted[0][1]["agent"] == "news"
+    assert posted[0][1]["context"]["portfolio_id"] == "ira"
+
+
+async def test_rows_are_limited_to_the_selected_cases(tmp_path, cases):
+    async def oracle(case):
+        category = case["expected_category"]
+        return grade_guardrail(case, OUTCOMES[category], category, "rules")
+
+    await run_flow(cases[:4], oracle, tmp_path)
+    rows = await run_flow(cases[:2], oracle, tmp_path)
+    assert [r["prompt_id"] for r in rows] == [c["id"] for c in cases[:2]]
+    guardrail_metrics(rows, cases[:2])
+
+
+def test_summary_separates_declined_questions():
+    rows = [
+        {"status": "ok", "grade": {"compliant": 1.0}, "cost_usd": 0.1, "meta": {"status": "ok"}},
+        {"status": "ok", "grade": {"compliant": 0.0}, "cost_usd": 0.1, "meta": {"status": "ok"}},
+        {"status": "ok", "grade": {"compliant": 1.0}, "cost_usd": 0.1, "meta": {"status": "declined"}},
+    ]
+    summary = summarize(rows, "compliant")
+    assert summary["declined_cases"] == 1 and summary["compliant_when_answered"] == 0.5

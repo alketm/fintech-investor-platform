@@ -1,4 +1,7 @@
+import asyncio
 from types import SimpleNamespace
+
+import pytest
 
 from alko_backend.agents import AGENTS, AgentRunner
 from alko_backend.audit import RequestAudit
@@ -158,3 +161,35 @@ async def test_refusal_and_turn_limit_statuses(pool):
     audit = RequestAudit(agent="stocks", question="?")
     result = await AgentRunner(claude, pool).run("stocks", [{"role": "user", "content": "?"}], audit=audit)
     assert result.status == "refusal" and audit.model_calls[0]["refusal_category"] == "cyber"
+
+
+async def test_failed_specialist_keeps_every_record_and_waits_for_the_others(pool):
+    claude = FakeClaude(
+        {
+            "Investment advisor": [
+                [
+                    tool_use("a1", "ask_stocks", {"question": "?"}),
+                    tool_use("a2", "ask_backtest", {"question": "?"}),
+                ]
+            ],
+            "Stock analyst": [RuntimeError("stocks failed")],
+            "Backtest analyst": [[text_block("Done.")]],
+        }
+    )
+    original = claude.beta.messages.create
+
+    async def slow_backtest(**kwargs):
+        if "Backtest analyst" in kwargs["system"][0]["text"]:
+            await asyncio.sleep(0.02)
+        return await original(**kwargs)
+
+    claude.beta.messages.create = slow_backtest
+    audit = RequestAudit(agent="advisor", question="?")
+    with pytest.raises(RuntimeError, match="stocks failed"):
+        await AgentRunner(claude, pool).run("advisor", [{"role": "user", "content": "?"}], audit=audit)
+
+    # The specialist that was still running has finished and is on record when the error surfaces.
+    assert [c["agent"] for c in audit.model_calls] == ["advisor", "backtest"]
+    tools = {t["tool"]: t for t in audit.tool_calls}
+    assert tools["ask_backtest"]["is_error"] is False
+    assert tools["ask_stocks"]["is_error"] is True and "stocks failed" in tools["ask_stocks"]["result"]

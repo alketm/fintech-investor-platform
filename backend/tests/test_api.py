@@ -313,3 +313,12 @@ def test_audit_never_stores_api_keys(client, monkeypatch):
     stored = client.store.path.read_bytes()
     assert b"How is AAPL?" in stored
     assert b"sk-ant-secret-value" not in stored and b"fred-secret-value" not in stored
+
+
+def test_unexpected_failure_records_the_error_text(client):
+    client.claude.script = {"Investment advisor": [RuntimeError("something odd")]}
+    with pytest.raises(RuntimeError):
+        _ask(client, "How is AAPL?")
+    [row] = client.store.recent()
+    record = client.store.get(row["id"])
+    assert record["status"] == "error" and "something odd" in record["error"]
