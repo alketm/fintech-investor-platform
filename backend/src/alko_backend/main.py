@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
         yield
 
 
-app = FastAPI(title="Alko Investment Advisor API", lifespan=lifespan)
+app = FastAPI(title="FinTech Co - Investor Platform API", lifespan=lifespan)
 
 
 def _portfolio(request: Request, portfolio_id: str) -> dict:

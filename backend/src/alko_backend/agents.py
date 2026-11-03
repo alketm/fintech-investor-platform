@@ -13,7 +13,7 @@ import anthropic
 from alko_backend.config import EFFORT, MAX_AGENT_TURNS, MODEL
 
 COMMON_RULES = """\
-You are part of Alko Investment Advisor, an assistant for the owner's own brokerage and IRA portfolios \
+You are part of FinTech Co - Investor Platform, an assistant for the owner's own brokerage and IRA portfolios \
 (US stocks and ETFs).
 - Ground every number in a tool result from this conversation; say so when data is missing or stale.
 - State the assumptions and limits of any analysis. Never present future returns as certain.

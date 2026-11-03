@@ -1,4 +1,4 @@
-# Alko Investment Advisor
+# FinTech Co - Investor Platform
 
 Keep this file under a page. When Claude makes the same mistake twice, the correction goes here.
 Changes to this file are reviewed like code.

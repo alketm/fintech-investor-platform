@@ -24,7 +24,7 @@ export default function App() {
   return (
     <div className={`app ${chatOpen ? 'with-chat' : ''}`}>
       <aside className="sidebar">
-        <div className="brand">Alko Investment Advisor</div>
+        <div className="brand">FinTech Co - Investor Platform</div>
         <nav aria-label="Views">
           {VIEWS.map((v) => (
             <NavLink key={v.path} to={v.path}>

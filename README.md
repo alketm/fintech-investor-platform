@@ -1,4 +1,4 @@
-# Alko Investment Advisor
+# FinTech Co - Investor Platform
 
 Project scaffolding follows the AI-native SDLC playbook
 (<https://claude.com/resources/articles/the-ai-native-sdlc-playbook>).
