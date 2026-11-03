@@ -1,6 +1,6 @@
 # Branch protection on main should require approval from a code owner.
-# Replace with your GitHub username or team.
-*                 @OWNER
-/CLAUDE.md        @OWNER
-/REVIEW.md        @OWNER
-/.claude/         @OWNER
+*                 @alketm
+/CLAUDE.md        @alketm
+/REVIEW.md        @alketm
+/.claude/         @alketm
+/.github/         @alketm

@@ -14,7 +14,7 @@ Project scaffolding follows the AI-native SDLC playbook
 | `.claude/skills/` | Project skills, one folder per skill with a `SKILL.md` |
 | `evals/` | Real tasks used to check Claude's config still behaves, one JSON file each |
 | `docs/lessons.md` | Post-mortem lessons |
-| `.github/` | Code owners and PR template |
+| `.github/` | Code owners, PR template and CI workflow |
 | `frontend/` | Browser UI (Vite + React) |
 | `backend/` | API server and agents (FastAPI) |
 | `mcp_servers/` | One MCP server per data domain, each named `mcp_<domain>` |
