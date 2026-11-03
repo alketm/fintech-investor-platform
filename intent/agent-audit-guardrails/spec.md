@@ -1,7 +1,7 @@
 # Spec: Agent audit trail, question guardrails and evals
 
 **Intent:** ./intent.md
-**Status:** draft
+**Status:** approved
 
 ## Behavior
 `POST /api/chat` handles each request in this order:
