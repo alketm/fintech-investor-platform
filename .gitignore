@@ -5,6 +5,10 @@
 *.pem
 *.key
 
+# Local audit data (questions, replies, thinking summaries) and eval results
+backend/data/audit/
+evals/agents/results/
+
 # Claude personal settings (team settings in .claude/settings.json are committed)
 .claude/settings.local.json
 CLAUDE.local.md

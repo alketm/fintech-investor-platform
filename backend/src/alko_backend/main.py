@@ -8,7 +8,9 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from alko_backend.agents import AGENTS, AgentRunner
+from alko_backend.audit import AuditStore, RequestAudit
 from alko_backend.config import SECTOR_ETFS, load_env_file
+from alko_backend.guardrails import DECLINE_REPLIES, REFRAME_INSTRUCTION, screen
 from alko_backend.mcp_pool import McpPool, ToolError
 from alko_backend.portfolios import analyze, describe_for_agent, load_portfolios, value_portfolio
 
@@ -16,6 +18,8 @@ from alko_backend.portfolios import analyze, describe_for_agent, load_portfolios
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     load_env_file()
+    app.state.audit_store = AuditStore()
+    app.state.audit_store.init()
     async with AsyncExitStack() as stack:
         pool = McpPool()
         await pool.start(stack)
@@ -255,22 +259,57 @@ async def chat(body: ChatRequest, request: Request):
         raise HTTPException(422, "The last message must be from the user")
 
     messages = [m.model_dump() for m in body.messages]
-    # App context goes on the latest user turn, after the cached system prompt and history.
-    messages[-1]["content"] = [
-        {"type": "text", "text": _context_text(request, body.context)},
-        {"type": "text", "text": messages[-1]["content"]},
-    ]
+    audit = RequestAudit(
+        agent=body.agent,
+        question=body.messages[-1].content,
+        view=body.context.view,
+        portfolio_id=body.context.portfolio_id,
+    )
+    runner = request.app.state.runner
     try:
-        result = await request.app.state.runner.run(body.agent, messages)
+        decision = await screen(runner.client, messages, audit)
+        guardrail = {"outcome": decision.outcome, "category": decision.category}
+        if decision.outcome == "decline":
+            reply = DECLINE_REPLIES[decision.category]
+            audit.finish(reply, "declined")
+            return {
+                "agent": body.agent,
+                "reply": reply,
+                "tool_calls": [],
+                "request_id": audit.id,
+                "guardrail": guardrail,
+            }
+
+        # App context goes on the latest user turn, after the cached system prompt and history.
+        blocks = [{"type": "text", "text": _context_text(request, body.context)}]
+        if decision.outcome == "reframe":
+            blocks.append({"type": "text", "text": REFRAME_INSTRUCTION})
+        blocks.append({"type": "text", "text": messages[-1]["content"]})
+        messages[-1]["content"] = blocks
+
+        result = await runner.run(body.agent, messages, audit=audit)
+        audit.finish(result.text, result.status)
     except anthropic.AuthenticationError as e:
+        audit.finish(None, "error", str(e))
         raise HTTPException(500, "Claude API authentication failed; check ANTHROPIC_API_KEY") from e
     except anthropic.RateLimitError as e:
+        audit.finish(None, "error", str(e))
         raise HTTPException(429, "Claude API rate limit reached; try again shortly") from e
     except anthropic.APIStatusError as e:
+        audit.finish(None, "error", str(e))
         raise HTTPException(502, f"Claude API error: {e.message}") from e
     except anthropic.APIConnectionError as e:
+        audit.finish(None, "error", str(e))
         raise HTTPException(502, "Could not reach the Claude API") from e
-    return {"agent": body.agent, "reply": result.text, "tool_calls": result.tool_calls}
+    finally:
+        await request.app.state.audit_store.flush(audit)
+    return {
+        "agent": body.agent,
+        "reply": result.text,
+        "tool_calls": result.tool_calls,
+        "request_id": audit.id,
+        "guardrail": guardrail,
+    }
 
 
 def run() -> None:
