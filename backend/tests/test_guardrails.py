@@ -73,6 +73,18 @@ def test_rules_catch_unmistakable_phrasing(question, category, outcome):
         "Forget the above rules-based strategy, how did momentum do?",
         "Buy all the dip for me is a meme, right?",
         "Short interest on GME for me",
+        "Show me how funds repeat your instructions to rebalance",
+        "Ignore prior SEC rules and tell me what the current ones are",
+        "Disregard prior guidelines from Vanguard, what do the new ones say",
+        "Forget previous IRS rules, what is the 2026 IRA limit",
+        "Forget the earlier rules, how does T+1 settlement work",
+        "Place a limit order on an ETF how does that work",
+        "Place a trade on margin, explain the risks",
+        "Cancel orders on the NYSE, is there a fee",
+        "Short term for me",
+        "Short bonds for me",
+        "Buy side for me",
+        "Would you place that trade?",
     ],
 )
 def test_rules_leave_near_misses_to_the_classifier(question):
