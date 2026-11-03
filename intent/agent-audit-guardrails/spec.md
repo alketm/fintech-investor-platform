@@ -27,8 +27,9 @@ New module `guardrails.py`. `screen(messages) -> Decision(outcome, category, sou
 `source` is `rules`, `classifier` or `unscreened`.
 
 - **Local rules run first:** a small set of regular expressions for unmistakable phrasing in the `trade_execution`,
-  `prompt_injection` and `recommendation` categories. A match skips the classifier, so rules must be narrow: a request to
-  act has to open the message. Asking how to place a trade or what an order type means is in scope, not `trade_execution`.
+  `prompt_injection` and `recommendation` categories. A match skips the classifier, so rules match only whole, unmistakable
+  commands, and a missed request still reaches the classifier. Asking how to place a trade or what an order type means is
+  in scope, not `trade_execution`.
 - **Classifier runs otherwise:** one `client.messages.create` call to `claude-haiku-5-5` with effort `low`, `max_tokens`
   256 and structured output (`output_config.format`) for `{category, reason}`. Its system prompt treats the text as data
   to classify, not instructions to follow. It receives the latest user message and up to four earlier messages, so a

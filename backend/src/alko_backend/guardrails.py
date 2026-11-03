@@ -64,24 +64,32 @@ CLASSIFIER_SCHEMA = {
 
 CONTEXT_MESSAGES = 4
 
-# Rules only catch unmistakable phrasing, and a match skips the classifier. A request to act has to open the message,
-# so questions about how trading works ("can you tell me how to place an order?") go to the classifier instead.
-ACT_NOW = r"^\s*(?:(?:please|can you|could you|would you|will you|go ahead and|just)\s+)*"
+# A rule match skips the classifier, so a false decline can't be corrected, while a miss still reaches the classifier.
+# Rules therefore match only whole, unmistakable commands. Anything looser, including most "can you ...?" questions,
+# which are often about how things work in general, is the classifier's to judge.
+COMMAND = r"^\s*(?:(?:please|go ahead and|just)\s+)*"
+ORDER_WORDS = r"(?:(?:an?|my|that|this|the|these|those|open|buy|sell|limit|market|stop)\s+)*"
 
 RULES = [
     (
         "prompt_injection",
         re.compile(
-            r"\b(ignore|disregard|forget)\b.{0,20}\b(your|previous|prior|above|earlier|system)\b"
-            r".{0,20}\b(instructions|rules|prompts?|guidelines)\b"
-            r"|\b(reveal|show|print|repeat)\b.{0,30}\b(system prompt|your instructions)\b"
+            COMMAND
+            + r"(?:(?:ignore|disregard|forget)\b.{0,30}\b(?:your|previous|prior|above|earlier|system)\b"
+            r".{0,20}\b(?:instructions|rules|prompts?|guidelines)\b(?!-)"
+            r"|(?:reveal|show|print|repeat)\b.{0,30}\b(?:system prompt|your instructions)\b)"
         ),
     ),
     (
         "trade_execution",
         re.compile(
-            ACT_NOW + r"(?:(?:place|execute|submit|cancel)\b.{0,30}\b(?:order|trade)s?\b"
-            r"|(?:buy|sell|short)\s+(?:\d[\d,]*|all|my|some|half|shares)\b.{0,40}\bfor me\b)"
+            COMMAND
+            + r"(?:(?:place|execute|submit|cancel)\s+"
+            + ORDER_WORDS
+            + r"(?:order|trade)s?(?:\s+(?:for|on|to)\s+[^?:]*)?"
+            r"|(?:buy|sell|short)\s+(?:(?:\d[\d,]*|all|my|some|half)\b[^?:]{0,40}|[a-z]{1,5}\s+)for me)[.!]?\s*$"
+            r"|^\s*(?:can|could|would|will) you\s+(?:place|execute|submit|cancel)\s+(?:that|this|the)\s+"
+            r"(?:order|trade)[.!?]?\s*$"
         ),
     ),
     (
