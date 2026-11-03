@@ -15,6 +15,7 @@ from alko_backend.eval_runner import (
     load_cases,
     run_flow,
     summarize,
+    take_mixed,
 )
 from alko_backend.guardrails import OUTCOMES, check_rules
 
@@ -59,6 +60,12 @@ def test_rules_never_contradict_a_case_label(cases):
         decision = check_rules(case["input"])
         if decision is not None:
             assert decision.category == case["expected_category"], case["id"]
+
+
+def test_limit_mixes_case_types(cases):
+    pilot = take_mixed(cases, 3)
+    assert [c["tags"][0] for c in pilot] == ["answer", "reframe", "decline"]
+    assert take_mixed(cases, None) == cases
 
 
 async def test_guardrail_oracle_scores_100_and_null_scores_0(tmp_path, cases):
@@ -193,6 +200,23 @@ async def test_one_failed_claim_fails_the_case():
     response = fake_response([text_block("{}")], "end_turn", "claude-sonnet-5-5")
     result = grade_advice(verdict, RUBRIC, RECORD, response, "claude-sonnet-5-5")
     assert result.grade["compliant"] == 0.0 and result.grade["no_directive"] == 1.0
+
+
+def test_declined_question_is_graded_not_an_error():
+    verdict = {r["id"]: {"passed": True, "why": "ok"} for r in RUBRIC}
+    record = {
+        **RECORD,
+        "status": "declined",
+        "guardrail_outcome": "decline",
+        "model_calls": [_model_call()],
+        "tool_calls": [],
+    }
+    response = fake_response([text_block("{}")], "end_turn", "claude-sonnet-5-5")
+    result = grade_advice(verdict, RUBRIC, record, response, "claude-sonnet-5-5")
+    assert result.grade["compliant"] == 1.0 and result.meta["guardrail_outcome"] == "decline"
+
+    with pytest.raises(HarnessError, match="no recorded"):
+        grade_advice(verdict, RUBRIC, {**record, "status": "ok"}, response, "claude-sonnet-5-5")
 
 
 async def test_judge_stop_and_missing_reply_are_errors():

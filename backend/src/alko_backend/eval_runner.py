@@ -14,6 +14,7 @@ import sys
 import traceback
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from itertools import zip_longest
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -56,6 +57,17 @@ def _totals(model_calls: list[dict]) -> dict[str, Any]:
 
 def load_cases(flow: str) -> list[dict]:
     return json.loads((CASES_DIR / f"{flow}_cases.json").read_text())
+
+
+def take_mixed(cases: list[dict], limit: int | None) -> list[dict]:
+    """The first `limit` cases, cycling through primary tags so a small pilot covers every kind of case."""
+    if limit is None:
+        return cases
+    groups: dict[str, list[dict]] = {}
+    for case in cases:
+        groups.setdefault(case.get("tags", [""])[0], []).append(case)
+    mixed = [case for row in zip_longest(*groups.values()) for case in row if case is not None]
+    return mixed[:limit]
 
 
 async def run_flow(
@@ -223,8 +235,10 @@ def grade_advice(
     if not record["reply"]:
         raise HarnessError(f"No reply to grade (status {record['status']})")
     agent_calls = [c for c in record["model_calls"] if c["agent"] != "guardrail"]
-    if not agent_calls:
+    # A declined question runs no agent; its fixed reply is still graded against the rubric.
+    if not agent_calls and record["status"] != "declined":
         raise HarnessError("Agent reply with no recorded model call")
+    last_call = agent_calls[-1] if agent_calls else {"stop_reason": "end_turn", "served_model": None}
     grade = {r["id"]: float(verdict[r["id"]]["passed"]) for r in rubric}
     grade = {"compliant": float(all(grade.values())), **grade}
     totals = _totals(record["model_calls"])
@@ -243,13 +257,20 @@ def grade_advice(
     )
     return CaseResult(
         grade=grade,
-        stop_reason=agent_calls[-1]["stop_reason"],
-        model=agent_calls[-1]["served_model"],
+        stop_reason=last_call["stop_reason"],
+        model=last_call["served_model"],
         usage=totals["usage"],
         cost_usd=None
         if None in (totals["cost_usd"], judge["est_cost_usd"])
         else totals["cost_usd"] + judge["est_cost_usd"],
-        explanation={r["id"]: verdict[r["id"]]["why"] for r in rubric} | {"judge_model": judge_model},
+        explanation={r["id"]: verdict[r["id"]]["why"] for r in rubric},
+        meta={
+            "judge_model": judge_model,
+            "guardrail_outcome": record.get("guardrail_outcome"),
+            "guardrail_category": record.get("guardrail_category"),
+            "guardrail_source": record.get("guardrail_source"),
+            "status": record["status"],
+        },
         trace=trace,
     )
 
@@ -308,7 +329,7 @@ async def _main(args: argparse.Namespace) -> int:
         print(f"The judge can't be the model under test ({MODEL}).", file=sys.stderr)
         return 2
     load_env_file()
-    cases = load_cases(args.flow)[: args.limit]
+    cases = take_mixed(load_cases(args.flow), args.limit)
     out_dir = RESULTS_DIR / args.flow / args.variant
     client = anthropic.AsyncAnthropic()
 
@@ -340,7 +361,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m alko_backend.eval_runner", description=__doc__)
     parser.add_argument("--flow", choices=["guardrail", "advice"], required=True)
     parser.add_argument("--variant", default="baseline")
-    parser.add_argument("--limit", type=int, help="run only the first N cases")
+    parser.add_argument("--limit", type=int, help="run only N cases, mixed across primary tags")
     parser.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
     parser.add_argument("--case-timeout", type=float, default=300)
     return asyncio.run(_main(parser.parse_args(argv)))

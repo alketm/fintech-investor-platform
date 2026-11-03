@@ -5,7 +5,9 @@ MODEL = "claude-opus-5-5"
 EFFORT = "medium"
 MAX_AGENT_TURNS = 12
 MAX_DELEGATION_DEPTH = 1
-MAX_REQUEST_TOKENS = 500_000  # provisional; shared by every model call in one chat request
+MAX_REQUEST_TOKENS = (
+    500_000  # shared by every model call in one chat request; a broad five-specialist chat used 62k
+)
 GUARDRAIL_MODEL = "claude-haiku-5-5"
 
 ROOT = Path(__file__).resolve().parents[3]
