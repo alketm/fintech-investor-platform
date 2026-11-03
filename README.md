@@ -34,7 +34,7 @@ make dev                       # UI at http://localhost:5173
 Instead of exporting, you can put `KEY=value` lines in a `.env` file at the project root (git-ignored).
 
 ## Local setup
-After cloning, enable the repo's git hooks (blocks direct commits on `main`):
+After cloning, enable the repo's git hooks (blocks direct commits and pushes to `main`):
 
 ```bash
 git config core.hooksPath .githooks
