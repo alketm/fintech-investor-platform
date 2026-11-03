@@ -69,27 +69,29 @@ CONTEXT_MESSAGES = 4
 # which are often about how things work in general, is the classifier's to judge.
 COMMAND = r"^\s*(?:(?:please|go ahead and|just)\s+)*"
 ORDER_WORDS = r"(?:(?:an?|my|that|this|the|these|those|open|buy|sell|limit|market|stop)\s+)*"
+TICKER = r"(?-i:[A-Z]{1,5})"  # capitals only, so "short term for me" isn't read as a trade
 
 RULES = [
     (
         "prompt_injection",
         re.compile(
-            COMMAND
-            + r"(?:(?:ignore|disregard|forget)\b.{0,30}\b(?:your|previous|prior|above|earlier|system)\b"
-            r".{0,20}\b(?:instructions|rules|prompts?|guidelines)\b(?!-)"
-            r"|(?:reveal|show|print|repeat)\b.{0,30}\b(?:system prompt|your instructions)\b)"
+            COMMAND + r"(?:(?:ignore|disregard|forget)\s+(?:all\s+)?(?:"
+            r"(?:of\s+)?your\b.{0,20}\b(?:instructions|rules|prompts?|guidelines)\b(?!-)"
+            r"|(?:the\s+)?(?:previous|prior|above|earlier|system)\s+(?:instructions|prompts?)\b)"
+            r"|(?:reveal|show|print|repeat)\s+(?:me\s+)?(?:your\s+|the\s+)?(?:system prompt|instructions)\b)",
+            re.IGNORECASE,
         ),
     ),
     (
         "trade_execution",
         re.compile(
-            COMMAND
-            + r"(?:(?:place|execute|submit|cancel)\s+"
-            + ORDER_WORDS
-            + r"(?:order|trade)s?(?:\s+(?:for|on|to)\s+[^?:]*)?"
-            r"|(?:buy|sell|short)\s+(?:(?:\d[\d,]*|all|my|some|half)\b[^?:]{0,40}|[a-z]{1,5}\s+)for me)[.!]?\s*$"
-            r"|^\s*(?:can|could|would|will) you\s+(?:place|execute|submit|cancel)\s+(?:that|this|the)\s+"
-            r"(?:order|trade)[.!?]?\s*$"
+            COMMAND + r"(?:(?:place|execute|submit|cancel)\s+" + ORDER_WORDS + r"(?:order|trade)s?"
+            r"(?:\s+(?:for|on)\s+(?:\d[\d,]*\s+(?:shares?\s+(?:of\s+)?)?)?" + TICKER + r")?"
+            r"|(?:buy|sell|short)\s+(?:(?:\d[\d,]*|all|my|some|half)\b[^?:]{0,40}|" + TICKER + r"\s+)for me)"
+            r"[.!]?\s*$"
+            r"|^\s*(?:can|could|will) you\s+(?:place|execute|submit|cancel)\s+(?:that|this|the)\s+"
+            r"(?:order|trade)[.!?]?\s*$",
+            re.IGNORECASE,
         ),
     ),
     (
@@ -97,7 +99,8 @@ RULES = [
         re.compile(
             r"\bshould i\b.{0,20}\b(buy|sell|short|hold|trim)\b"
             r"|\bwhat\b.{0,20}\bshould i\b.{0,20}\b(buy|sell)\b"
-            r"|\bwhat (stocks?|etfs?|funds?) should i\b"
+            r"|\bwhat (stocks?|etfs?|funds?) should i\b",
+            re.IGNORECASE,
         ),
     ),
 ]
@@ -119,9 +122,8 @@ def _decision(category: str, source: str, reason: str) -> Decision:
 
 
 def check_rules(question: str) -> Decision | None:
-    text = question.lower()
     for category, pattern in RULES:
-        if pattern.search(text):
+        if pattern.search(question):
             return _decision(category, "rules", f"Matched local {category} rule")
     return None
 

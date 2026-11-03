@@ -8,7 +8,7 @@ Python 3.12 via uv, Node via npm; both live in `~/.local/bin` (the Makefile adds
 - `make install` — `uv sync --all-packages` + `npm install`
 - `make dev` — backend on :8000 and UI on :5173. Needs `ANTHROPIC_API_KEY` for chat and `FRED_API_KEY` for the
   FRED-backed servers, from the shell or the git-ignored `.env` (the owner edits `.env`; never write keys to files).
-- `make test` — pytest then vitest. Healthy: `286 passed` and `Tests  14 passed`. Needs no API key or network. Exits non-zero on failure.
+- `make test` — pytest then vitest. Healthy: `298 passed` and `Tests  14 passed`. Needs no API key or network. Exits non-zero on failure.
 - `make lint` — ruff check, ruff format --check, oxlint, `tsc -b`. Healthy: `All checks passed!`, no tsc output.
 - `make build` — frontend bundle. Healthy: `✓ built in …`
 - `make eval FLOW=guardrail|advice [ARGS="--limit 5"]` — paid API calls, on demand only; never in `make test` or CI.
