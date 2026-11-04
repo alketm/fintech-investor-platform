@@ -176,6 +176,31 @@ def test_long_short_policy_uncertainty_maps_params(client, pool):
     assert args["ma_days"] == 21 and isinstance(args["ma_days"], int)
 
 
+def test_long_short_economic_policy_uncertainty_maps_params(client, pool):
+    body = {
+        "strategy": "economic_policy_uncertainty",
+        "symbol": "SPY",
+        "start": "2020-01-01",
+        "end": "2024-01-01",
+    }
+    r = client.post(
+        "/api/strategy/long-short",
+        json={
+            **body,
+            "params": {"fast_days": 30.0, "slow_days": 365.0, "short_above": 1.25, "signal_lag_days": 2},
+        },
+    )
+    assert r.status_code == 200
+    _, tool, args = pool.calls[-1]
+    assert tool == "backtest_economic_policy_uncertainty"
+    assert args["fast_days"] == 30 and isinstance(args["fast_days"], int)
+    assert args["slow_days"] == 365 and isinstance(args["slow_days"], int)
+    assert args["signal_lag_days"] == 2 and args["short_above"] == 1.25
+    assert (
+        client.post("/api/strategy/long-short", json={**body, "params": {"ma_days": 21}}).status_code == 422
+    )
+
+
 def test_long_short_consumer_sentiment_maps_params(client, pool):
     r = client.post(
         "/api/strategy/long-short",

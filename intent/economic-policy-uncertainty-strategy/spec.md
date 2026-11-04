@@ -23,9 +23,10 @@ One transition per day, so a long or short always passes through neutral before 
 existing engine (decided at a close, held the next day, costs per change). Two years of warm-up settle the state.
 Requires 2 <= `fast_days` < `slow_days` and 0 < `long_below` <= `exit_level` <= `short_above`.
 
-The default bands were chosen from the signal's distribution only, with no returns looked at. A monthly
-approximation over 2010-2026 gives a median ratio of 0.96, about 35% long, 18% short and 47% flat, and about 3.3
-position changes a year.
+The default bands were chosen from the signal's distribution only, with no returns looked at, using a monthly
+approximation over 2010-2026 (median ratio 0.96; about 35% long, 18% short, 47% flat; about 3.3 position changes a
+year). The live daily rule on SPY from 2010 to 2026-11-02 has the same median ratio but trades more: 38.5% long,
+25.6% short, 35.9% flat and 103 position changes, about 6 a year. The defaults were kept as chosen, not refitted.
 
 ## Tool
 `backtest_economic_policy_uncertainty(symbol, start, end, fast_days=30, slow_days=365, short_above=1.25,
@@ -42,4 +43,4 @@ Strategy view's tile is named "Economic Policy Uncertainty".
    bands fire end to end.
 2. Tool test with fake prices and index; invalid parameters are rejected; missing FRED key gives a clear tool error.
 3. API maps the strategy and its parameters; Strategy view shows the thresholds as parameters.
-4. Live backtest on SPY through the API and the Strategy view.
+4. Live backtest on SPY through the API, and through the Strategy view on VOO (its symbol list has no SPY).

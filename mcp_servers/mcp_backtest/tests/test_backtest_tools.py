@@ -94,6 +94,7 @@ async def test_tools_registered():
         "backtest_time_series_momentum",
         "backtest_rsi_mean_reversion",
         "backtest_policy_uncertainty",
+        "backtest_economic_policy_uncertainty",
         "backtest_consumer_sentiment",
         "backtest_vix_volatility",
     }
@@ -131,6 +132,53 @@ def test_policy_uncertainty_needs_fred_key(monkeypatch):
     monkeypatch.delenv("FRED_API_KEY", raising=False)
     with pytest.raises(ToolError, match="FRED_API_KEY is not set"):
         server.backtest_policy_uncertainty("SPY", "2022-01-01", "2025-01-01")
+
+
+def test_economic_policy_uncertainty_tool(monkeypatch):
+    calendar = pd.date_range("2017-01-01", "2025-12-31")
+    # A slow wave through the bands, so the strategy goes long, short and flat.
+    index = pd.Series(100 + 60 * np.sin(np.arange(len(calendar)) / 90), index=calendar)
+    monkeypatch.setattr(
+        server, "_economic_policy_uncertainty", lambda start: index[index.index >= start]
+    )  # runs to 2025-12
+    out = server.backtest_economic_policy_uncertainty("SPY", "2022-01-01", "2025-01-01")
+    assert out["parameters"] == {
+        "fast_days": 30,
+        "slow_days": 365,
+        "short_above": 1.25,
+        "long_below": 0.85,
+        "exit_level": 1.0,
+        "signal_lag_days": 1,
+        "cost_bps": 5.0,
+    }
+    e = out["epu"]
+    assert e["value_date"] <= "2025-01-01" and "USEPUINDXD" in e["source"]  # as of the test end, not today
+    assert e["ratio_at_end"] == pytest.approx(e["fast_average_at_end"] / e["slow_average_at_end"], abs=0.01)
+    assert e["signal_at_end"] == out["activity"]["current_position"]
+    a = out["activity"]
+    assert a["pct_days_long"] > 0 and a["pct_days_short"] > 0 and a["pct_days_flat"] > 0
+    assert "Economic Policy Uncertainty" in out["rule"] and "short above 1.25x" in out["rule"]
+    assert "revisions" in out["assumptions"]
+
+
+@pytest.mark.parametrize(
+    ("params", "message"),
+    [
+        ({"fast_days": 1}, "fast_days < slow_days"),
+        ({"fast_days": 365}, "fast_days < slow_days"),
+        ({"signal_lag_days": 0}, "signal_lag_days >= 1"),
+        ({"exit_level": 0.5}, "long_below <= exit_level"),
+    ],
+)
+def test_economic_policy_uncertainty_rejects_bad_parameters(params, message):
+    with pytest.raises(ToolError, match=message):
+        server.backtest_economic_policy_uncertainty("SPY", "2022-01-01", "2025-01-01", **params)
+
+
+def test_economic_policy_uncertainty_needs_fred_key(monkeypatch):
+    monkeypatch.delenv("FRED_API_KEY", raising=False)
+    with pytest.raises(ToolError, match="FRED_API_KEY is not set"):
+        server.backtest_economic_policy_uncertainty("SPY", "2022-01-01", "2025-01-01")
 
 
 SENTIMENT = pd.Series(

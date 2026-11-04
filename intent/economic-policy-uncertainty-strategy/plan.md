@@ -3,8 +3,8 @@
 **Spec:** ./spec.md
 
 ## Files that change
-- `mcp_servers/mcp_backtest/src/alko_mcp_backtest/strategies.py`: `epu_ratio`, `epu_positions`, reusing
-  `ratio_band_signals`.
+- `mcp_servers/mcp_backtest/src/alko_mcp_backtest/strategies.py`: `epu_ratio`, `epu_table` (positions and the
+  end-of-test readout come from one table, so they can't disagree), reusing `ratio_band_signals`.
 - `mcp_servers/mcp_backtest/src/alko_mcp_backtest/server.py`: `_economic_policy_uncertainty`,
   `backtest_economic_policy_uncertainty`, server instructions.
 - `backend/src/alko_backend/main.py`, `agents.py`: request literal, tool map, integer params, Backtest agent text.

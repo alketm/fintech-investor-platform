@@ -125,6 +125,54 @@ def test_uncertainty_ratio_aligns_index_to_trading_days():
     assert table["ratio"].round(2).tolist()[1:] == [1.0, 1.5, 1.0, 1.0]
 
 
+def test_epu_ratio_averages_calendar_days_including_weekends():
+    # Fri 2025-01-03 to Mon 2025-01-06: the weekend readings count.
+    epu = pd.Series([1.0, 10.0, 10.0, 1.0], index=pd.date_range("2025-01-03", periods=4))
+    table = st.epu_ratio(epu, fast_days=2, slow_days=4, lag_days=0)
+    assert table.loc["2025-01-06", "fast_average"] == 5.5
+    assert table.loc["2025-01-06", "slow_average"] == 5.5
+    assert table.loc["2025-01-05", "fast_average"] == 10.0
+
+
+def test_epu_ratio_carries_gaps_and_keeps_the_last_reading_after_the_lag():
+    epu = pd.Series([2.0, 4.0], index=pd.to_datetime(["2025-01-01", "2025-01-03"]))
+    table = st.epu_ratio(epu, fast_days=2, slow_days=3, lag_days=1)
+    # 1 Jan, a carried 2 Jan and 3 Jan: 3 Jan's reading first counts on 4 Jan, the last row.
+    assert table.index[-1] == pd.Timestamp("2025-01-04")
+    assert table.loc["2025-01-04", "fast_average"] == 3.0
+    assert table.loc["2025-01-04", "slow_average"] == pytest.approx(8 / 3)
+
+
+def test_epu_table_never_uses_the_decision_days_own_reading():
+    days = pd.date_range("2025-01-01", periods=40)
+    closes = pd.Series(100.0, index=days)
+    epu = pd.Series(1.0, index=days)
+    baseline = st.epu_table(closes, epu, 3, 10, 1.25, 0.85, 1.0, lag_days=1)
+    spike_day = days[25]
+    spiked = st.epu_table(closes, epu.where(epu.index != spike_day, 50.0), 3, 10, 1.25, 0.85, 1.0, lag_days=1)
+    assert spiked.loc[:spike_day, "ratio"].equals(baseline.loc[:spike_day, "ratio"])
+    assert spiked.loc[spike_day + pd.Timedelta(days=1), "ratio"] > 1.25
+
+
+def test_epu_table_bands_go_short_and_long_through_neutral():
+    days = pd.date_range("2025-01-01", periods=60)
+    closes = pd.Series(100.0, index=days)
+    epu = pd.Series([1.0] * 20 + [3.0] * 10 + [1.0] * 10 + [0.2] * 20, index=days)
+    signal = st.epu_table(closes, epu, 3, 10, 1.25, 0.85, 1.0, lag_days=1)["signal"]
+    assert signal.iloc[:10].isna().all()  # the slow average isn't full yet
+    assert signal.iloc[12] == 0
+    assert (signal == -1).any() and (signal == 1).any()
+    held = signal.dropna()
+    assert not (held.diff().abs() == 2).any()  # never reverses without passing through neutral
+
+
+def test_epu_table_carries_the_signal_over_days_without_a_reading():
+    closes = pd.Series(100.0, index=pd.to_datetime(["2025-01-20", "2025-02-10"]))  # past the last reading
+    epu = pd.Series(1.0, index=pd.date_range("2025-01-01", periods=20))
+    table = st.epu_table(closes, epu, 2, 5, 1.25, 0.85, 1.0, lag_days=1)
+    assert table["ratio"].tolist() == [1.0, 1.0]
+
+
 MONTHS = pd.date_range("2024-01-01", periods=7, freq="MS")
 
 

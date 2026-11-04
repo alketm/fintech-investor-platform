@@ -13,7 +13,8 @@ mcp = MCPServer(
     "mcp_backtest",
     instructions="Historical backtests on daily dividend-adjusted closes: buy and hold, and long-short "
     "strategies (moving-average crossover, time-series momentum, RSI mean reversion, Kansas City Fed monetary "
-    "policy uncertainty, University of Michigan consumer sentiment bands, VIX versus realized volatility). "
+    "policy uncertainty, Economic Policy Uncertainty, University of Michigan consumer sentiment bands, VIX versus "
+    "realized volatility). "
     "Every backtest also reports buying and holding a benchmark (SPY by default) over the same days. Results are simulations, not recommendations.",
 )
 
@@ -32,6 +33,14 @@ def _policy_uncertainty(start: str) -> pd.Series:
     """Kansas City Fed's Measure of Policy Rate Uncertainty (FRED KCPRU), daily."""
     try:
         return fred.series("KCPRU", start=start)
+    except fred.FredError as e:
+        raise ToolError(str(e)) from e
+
+
+def _economic_policy_uncertainty(start: str) -> pd.Series:
+    """Baker-Bloom-Davis Economic Policy Uncertainty index for the US (FRED USEPUINDXD), daily."""
+    try:
+        return fred.series("USEPUINDXD", start=start)
     except fred.FredError as e:
         raise ToolError(str(e)) from e
 
@@ -287,6 +296,94 @@ def backtest_policy_uncertainty(
         "value_date": str(known.index[-1].date()) if last is not None else None,
         "value_at_end": round(float(last["value"]), 3) if last is not None else None,
         "moving_average_at_end": round(float(last["moving_average"]), 3) if last is not None else None,
+        "ratio_at_end": round(float(last["ratio"]), 2) if last is not None else None,
+        "signal_at_end": {1.0: "long", -1.0: "short"}.get(float(last["signal"]), "flat")
+        if last is not None
+        else None,
+        "median_ratio": round(float(in_test.median()), 2) if len(in_test) else None,
+    }
+    return result
+
+
+@mcp.tool()
+def backtest_economic_policy_uncertainty(
+    symbol: str,
+    start: str,
+    end: str,
+    fast_days: int = 30,
+    slow_days: int = 365,
+    short_above: float = 1.25,
+    long_below: float = 0.85,
+    exit_level: float = 1.0,
+    signal_lag_days: int = 1,
+    initial_capital: float = 10_000.0,
+    cost_bps: float = 5.0,
+    benchmark: str = "SPY",
+) -> dict:
+    """Economic Policy Uncertainty: long-short timing with the Baker-Bloom-Davis news-based EPU index (FRED
+    USEPUINDXD, daily), using its `fast_days` calendar-day average as a multiple of its `slow_days` average and
+    readings from at least `signal_lag_days` calendar days earlier (a reading is published the next morning). Each
+    day: from neutral, short above `short_above`, long below `long_below`, else stay neutral; a short goes neutral
+    once below `exit_level` and a long once above `exit_level`. Same outputs as the other long-short backtests
+    plus the EPU averages and ratio behind the last signal."""
+    if not 2 <= fast_days < slow_days:
+        raise ToolError("Need 2 <= fast_days < slow_days")
+    if signal_lag_days < 1:
+        raise ToolError("Need signal_lag_days >= 1: a reading is only published the next morning")
+    if not 0 < long_below <= exit_level <= short_above:
+        raise ToolError("Need 0 < long_below <= exit_level <= short_above")
+    warmup = 504  # two years before the start: settles the state machine once the averages are full
+    try:
+        # _long_short's price warm-up, plus enough readings to fill the slow average on its first day.
+        first = pd.Timestamp(start) - pd.Timedelta(days=int(warmup * 1.5) + 30 + slow_days + signal_lag_days)
+    except ValueError as e:
+        raise ToolError(f"Dates must be YYYY-MM-DD: {e}") from e
+    index = _economic_policy_uncertainty(first.strftime("%Y-%m-%d"))
+    if index.empty:
+        raise ToolError("No Economic Policy Uncertainty data returned")
+    settings = (fast_days, slow_days, short_above, long_below, exit_level, signal_lag_days)
+    tables = []
+
+    def signal(closes: pd.Series) -> pd.Series:
+        tables.append(strategies.epu_table(closes, index, *settings))
+        return tables[-1]["signal"].fillna(0.0)
+
+    result = _long_short(
+        symbol,
+        start,
+        end,
+        warmup,
+        signal,
+        initial_capital,
+        cost_bps,
+        f"Daily, with the Economic Policy Uncertainty index's {fast_days}-day average as a multiple of its "
+        f"{slow_days}-day average (readings lagged {signal_lag_days} calendar "
+        f"day{'s' if signal_lag_days != 1 else ''}): from neutral, short above {short_above:g}x, long below "
+        f"{long_below:g}x, else stay neutral; a short goes neutral below {exit_level:g}x, a long goes neutral "
+        f"above {exit_level:g}x.",
+        {
+            "fast_days": fast_days,
+            "slow_days": slow_days,
+            "short_above": short_above,
+            "long_below": long_below,
+            "exit_level": exit_level,
+            "signal_lag_days": signal_lag_days,
+        },
+        benchmark,
+    )
+    known = tables[-1][
+        tables[-1].index <= pd.Timestamp(result["end"])
+    ].dropna()  # as of the test end, not today
+    last = known.iloc[-1] if len(known) else None
+    in_test = known[known.index >= pd.Timestamp(result["start"])]["ratio"]
+    result["assumptions"] += (
+        " EPU uses today's published history: any revisions to past readings are not modelled."
+    )
+    result["epu"] = {
+        "source": "Baker, Bloom and Davis Economic Policy Uncertainty Index for the US (FRED USEPUINDXD)",
+        "value_date": str(known.index[-1].date()) if last is not None else None,
+        "fast_average_at_end": round(float(last["fast_average"]), 1) if last is not None else None,
+        "slow_average_at_end": round(float(last["slow_average"]), 1) if last is not None else None,
         "ratio_at_end": round(float(last["ratio"]), 2) if last is not None else None,
         "signal_at_end": {1.0: "long", -1.0: "short"}.get(float(last["signal"]), "flat")
         if last is not None
