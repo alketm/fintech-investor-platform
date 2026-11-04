@@ -83,6 +83,7 @@ export type LongShortStrategy =
   | 'time_series_momentum'
   | 'rsi_mean_reversion'
   | 'policy_uncertainty'
+  | 'economic_policy_uncertainty'
   | 'consumer_sentiment'
   | 'vix_volatility'
 
@@ -126,6 +127,15 @@ export interface LongShortResult {
     value_date: string | null
     value_at_end: number | null
     moving_average_at_end: number | null
+    ratio_at_end: number | null
+    signal_at_end: 'long' | 'short' | 'flat' | null
+    median_ratio: number | null
+  }
+  epu?: {
+    source: string
+    value_date: string | null
+    fast_average_at_end: number | null
+    slow_average_at_end: number | null
     ratio_at_end: number | null
     signal_at_end: 'long' | 'short' | 'flat' | null
     median_ratio: number | null

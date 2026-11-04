@@ -122,7 +122,7 @@ describe('StrategyView', () => {
     stubFetch()
     render(<StrategyView />)
     const strategy = screen.getByRole('group', { name: 'Strategy' })
-    expect(within(strategy).getAllByRole('radio')).toHaveLength(7)
+    expect(within(strategy).getAllByRole('radio')).toHaveLength(8)
     expect(within(strategy).getByRole('radio', { name: /Buy and hold/ })).toBeChecked()
     expect(within(screen.getByRole('group', { name: 'Event type' })).getAllByRole('radio')).toHaveLength(4)
   })
@@ -150,6 +150,18 @@ describe('StrategyView', () => {
     expect(screen.getByLabelText('Go short above (× avg)')).toHaveValue(1.4)
     expect(screen.getByLabelText('Go long below (× avg)')).toHaveValue(1.2)
     expect(screen.getByLabelText('Back to neutral at (× avg)')).toHaveValue(1.3)
+  })
+
+  it('shows the Economic Policy Uncertainty thresholds as parameters', () => {
+    stubFetch()
+    render(<StrategyView />)
+    fireEvent.click(screen.getByRole('radio', { name: /Economic Policy Uncertainty/ }))
+    expect(screen.getByLabelText('Fast average (calendar days)')).toHaveValue(30)
+    expect(screen.getByLabelText('Slow average (calendar days)')).toHaveValue(365)
+    expect(screen.getByLabelText('Go short above (× slow avg)')).toHaveValue(1.25)
+    expect(screen.getByLabelText('Go long below (× slow avg)')).toHaveValue(0.85)
+    expect(screen.getByLabelText('Back to neutral at (× slow avg)')).toHaveValue(1)
+    expect(screen.getByLabelText('Signal lag (calendar days)')).toHaveValue(1)
   })
 
   it('shows the VIX strategy thresholds as parameters', () => {

@@ -99,6 +99,7 @@ class LongShortRequest(BaseModel):
         "time_series_momentum",
         "rsi_mean_reversion",
         "policy_uncertainty",
+        "economic_policy_uncertainty",
         "consumer_sentiment",
         "vix_volatility",
     ]
@@ -118,6 +119,10 @@ LONG_SHORT_TOOLS = {
         "backtest_policy_uncertainty",
         {"ma_days", "short_above", "long_below", "exit_level", "signal_lag_days"},
     ),
+    "economic_policy_uncertainty": (
+        "backtest_economic_policy_uncertainty",
+        {"fast_days", "slow_days", "short_above", "long_below", "exit_level", "signal_lag_days"},
+    ),
     "consumer_sentiment": (
         "backtest_consumer_sentiment",
         {"ma_months", "short_below_pct", "long_above_pct", "exit_pct", "release_lag_months"},
@@ -135,6 +140,8 @@ INTEGER_PARAMS = {
     "release_lag_months",
     "window_days",
     "ma_days",
+    "fast_days",
+    "slow_days",
 }
 
 

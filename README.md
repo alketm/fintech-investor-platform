@@ -11,7 +11,8 @@ decide on: it can't place trades or act on your accounts, and it isn't financial
 - **Analysis:** see allocation by holding and asset type, your largest position, and gains by position.
 - **Strategies:** test ideas against historical data.
   - **Backtests:** buy and hold, plus long-short moving-average crossover, time-series momentum, RSI mean reversion,
-    Monetary Policy Uncertainty, consumer sentiment and VIX versus realized volatility strategies.
+    Monetary Policy Uncertainty, Economic Policy Uncertainty, consumer sentiment and VIX versus realized volatility
+    strategies.
   - **Event studies:** how a stock reacted around a chosen date, earnings announcements, its own large moves and
     high-yield credit spread spikes.
 - **Ask an agent:** chat from any view with the investment advisor, which draws on the specialists and combines their

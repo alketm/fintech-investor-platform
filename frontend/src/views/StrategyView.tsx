@@ -165,6 +165,13 @@ const STRATEGIES: TileOption<BacktestKind>[] = [
       'Daily, Kansas City Fed index vs its 21-day average: short above 1.4x, long below 1.2x, neutral across 1.3x.',
   },
   {
+    id: 'economic_policy_uncertainty',
+    tag: 'Long-short · macro',
+    title: 'Economic Policy Uncertainty',
+    description:
+      'Daily, news-based index, 30-day average vs 365-day average: short above 1.25x, long below 0.85x, neutral across 1.0x.',
+  },
+  {
     id: 'consumer_sentiment',
     tag: 'Long-short · macro',
     title: 'Consumer sentiment bands',
@@ -216,6 +223,14 @@ const PARAMS: Record<
     { key: 'long_below', label: 'Go long below (× avg)', value: 1.2, min: 0.1, step: 0.05 },
     { key: 'exit_level', label: 'Back to neutral at (× avg)', value: 1.3, min: 0.1, step: 0.05 },
     { key: 'signal_lag_days', label: 'Signal lag (days)', value: 1, min: 0 },
+  ],
+  economic_policy_uncertainty: [
+    { key: 'fast_days', label: 'Fast average (calendar days)', value: 30, min: 2 },
+    { key: 'slow_days', label: 'Slow average (calendar days)', value: 365, min: 3 },
+    { key: 'short_above', label: 'Go short above (× slow avg)', value: 1.25, min: 0.1, step: 0.05 },
+    { key: 'long_below', label: 'Go long below (× slow avg)', value: 0.85, min: 0.1, step: 0.05 },
+    { key: 'exit_level', label: 'Back to neutral at (× slow avg)', value: 1, min: 0.1, step: 0.05 },
+    { key: 'signal_lag_days', label: 'Signal lag (calendar days)', value: 1, min: 1 },
   ],
   consumer_sentiment: [
     { key: 'ma_months', label: 'Moving average (months)', value: 3, min: 2 },
@@ -421,6 +436,23 @@ function LongShortView({ result }: { result: LongShortResult }) {
           <Stat
             label="Median in test"
             value={result.uncertainty.median_ratio == null ? '—' : `${result.uncertainty.median_ratio.toFixed(2)}×`}
+          />
+        </div>
+      )}
+      {result.epu && (
+        <div className="stats compact">
+          <Stat
+            label={`EPU ${result.parameters.fast_days}-day average, ${result.epu.value_date ?? '—'}`}
+            value={result.epu.fast_average_at_end?.toFixed(1) ?? '—'}
+          />
+          <Stat label={`${result.parameters.slow_days}-day average`} value={result.epu.slow_average_at_end?.toFixed(1) ?? '—'} />
+          <Stat
+            label="Fast / slow"
+            value={result.epu.ratio_at_end == null ? '—' : `${result.epu.ratio_at_end.toFixed(2)}×`}
+          />
+          <Stat
+            label="Median in test"
+            value={result.epu.median_ratio == null ? '—' : `${result.epu.median_ratio.toFixed(2)}×`}
           />
         </div>
       )}

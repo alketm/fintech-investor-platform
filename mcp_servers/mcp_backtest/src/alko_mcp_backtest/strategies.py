@@ -203,6 +203,33 @@ def vix_volatility_positions(
     return align_benchmark(signals.dropna(), closes.index).fillna(0.0)
 
 
+def epu_ratio(epu: pd.Series, fast_days: int, slow_days: int, lag_days: int) -> pd.DataFrame:
+    """Fast and slow calendar-day averages of the daily EPU index and their ratio, indexed by the day each can
+    first be used: a reading counts from `lag_days` calendar days after its date. Calendar days keep weekend
+    readings in the averages; gaps carry the last published value."""
+    daily = epu.dropna().sort_index().asfreq("D").ffill().shift(lag_days, freq="D")
+    fast, slow = daily.rolling(fast_days).mean(), daily.rolling(slow_days).mean()
+    return pd.DataFrame({"fast_average": fast, "slow_average": slow, "ratio": fast / slow.where(slow > 0)})
+
+
+def epu_table(
+    closes: pd.Series,
+    epu: pd.Series,
+    fast_days: int,
+    slow_days: int,
+    short_above: float,
+    long_below: float,
+    exit_level: float,
+    lag_days: int,
+) -> pd.DataFrame:
+    """`epu_ratio` on each trading day (carried over market holidays and past the last reading) plus the
+    `ratio_band_signals` signal: high uncertainty is short, low is long."""
+    table = epu_ratio(epu, fast_days, slow_days, lag_days)
+    table = table.reindex(table.index.union(closes.index)).ffill().reindex(closes.index)
+    table["signal"] = ratio_band_signals(table["ratio"], short_above, long_below, exit_level)
+    return table
+
+
 # --- engine ----------------------------------------------------------------------------------------------
 
 
